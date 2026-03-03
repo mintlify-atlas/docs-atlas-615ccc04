@@ -1,0 +1,222 @@
+---
+title: useClickOutside
+description: A hook for detecting clicks outside of specified element(s)
+---
+
+## Overview
+
+`useClickOutside` is a hook that triggers a callback when a click or touch event occurs outside of the specified element(s). This is commonly used for closing dropdowns, modals, and popovers when clicking outside of them.
+
+## Import
+
+```tsx
+import { useClickOutside } from "@zayne-labs/toolkit-react";
+```
+
+## Signature
+
+```typescript
+const useClickOutside = <TElement extends HTMLElement>(
+  options: UseClickOutsideOptions<TElement>
+) => { ref: React.RefObject<TElement> }
+```
+
+## Parameters
+
+<ParamField path="options" type="UseClickOutsideOptions<TElement>" required>
+  Configuration options for the click outside behavior.
+  
+  <ParamField path="options.onClick" type="(event: MouseEvent | TouchEvent) => void" required>
+    Callback function that will be invoked when a click/touch occurs outside the element(s).
+  </ParamField>
+  
+  <ParamField path="options.ref" type="React.RefObject<TElement> | Array<React.RefObject<TElement>>">
+    A ref or array of refs to elements. Clicks outside these elements will trigger the callback.
+    If not provided, the hook returns an internal ref that you can use.
+  </ParamField>
+  
+  <ParamField path="options.enabled" type="boolean" default="true">
+    Whether the click outside detection is enabled.
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="ref" type="React.RefObject<TElement>">
+  An internal ref that can be attached to an element. Only needed if you don't provide your own ref via options.
+</ResponseField>
+
+## Usage
+
+### Basic Dropdown
+
+```tsx
+import { useClickOutside } from "@zayne-labs/toolkit-react";
+import { useState } from "react";
+
+function Dropdown() {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const { ref } = useClickOutside<HTMLDivElement>({
+    onClick: () => setIsOpen(false),
+    enabled: isOpen, // Only listen when dropdown is open
+  });
+
+  return (
+    <div ref={ref}>
+      <button onClick={() => setIsOpen(!isOpen)}>
+        Toggle Menu
+      </button>
+      
+      {isOpen && (
+        <ul className="dropdown-menu">
+          <li>Option 1</li>
+          <li>Option 2</li>
+          <li>Option 3</li>
+        </ul>
+      )}
+    </div>
+  );
+}
+```
+
+### Using Your Own Ref
+
+```tsx
+import { useClickOutside } from "@zayne-labs/toolkit-react";
+import { useRef, useState } from "react";
+
+function Modal() {
+  const [isOpen, setIsOpen] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  
+  useClickOutside<HTMLDivElement>({
+    ref: modalRef,
+    onClick: () => setIsOpen(false),
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay">
+      <div ref={modalRef} className="modal-content">
+        <h2>Modal Title</h2>
+        <p>Click outside to close</p>
+      </div>
+    </div>
+  );
+}
+```
+
+### Multiple Elements
+
+```tsx
+import { useClickOutside } from "@zayne-labs/toolkit-react";
+import { useRef, useState } from "react";
+
+function ComplexMenu() {
+  const [isOpen, setIsOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  
+  // Clicking outside both the button and menu will close it
+  useClickOutside<HTMLElement>({
+    ref: [buttonRef, menuRef],
+    onClick: () => setIsOpen(false),
+    enabled: isOpen,
+  });
+
+  return (
+    <div>
+      <button
+        ref={buttonRef}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        Open Menu
+      </button>
+      
+      {isOpen && (
+        <div ref={menuRef} className="menu">
+          <p>Menu content</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### With Event Details
+
+```tsx
+import { useClickOutside } from "@zayne-labs/toolkit-react";
+import { useState } from "react";
+
+function EventDetailsExample() {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const { ref } = useClickOutside<HTMLDivElement>({
+    onClick: (event) => {
+      console.log("Clicked outside at:", event.clientX, event.clientY);
+      console.log("Target element:", event.target);
+      setIsOpen(false);
+    },
+  });
+
+  return (
+    <div ref={ref}>
+      <button onClick={() => setIsOpen(!isOpen)}>
+        Toggle Panel
+      </button>
+      
+      {isOpen && (
+        <div className="panel">
+          <p>Panel content</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Conditional Behavior
+
+```tsx
+import { useClickOutside } from "@zayne-labs/toolkit-react";
+import { useState } from "react";
+
+function ConditionalExample() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  
+  const { ref } = useClickOutside<HTMLDivElement>({
+    onClick: () => setIsOpen(false),
+    // Only enable when open and not pinned
+    enabled: isOpen && !isPinned,
+  });
+
+  return (
+    <div ref={ref}>
+      <button onClick={() => setIsOpen(!isOpen)}>
+        Toggle Sidebar
+      </button>
+      
+      {isOpen && (
+        <div className="sidebar">
+          <button onClick={() => setIsPinned(!isPinned)}>
+            {isPinned ? "Unpin" : "Pin"}
+          </button>
+          <p>Sidebar content</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Notes
+
+- The hook listens to both `mousedown` and `touchstart` events for broad device support
+- Event listeners are automatically cleaned up when the component unmounts or when `enabled` is `false`
+- The `onClick` callback is kept stable using `useCallbackRef` to prevent unnecessary listener updates
+- When providing an array of refs, a click is considered "outside" only if it's outside ALL specified elements
+- Built on top of the `onClickOutside` utility from `@zayne-labs/toolkit-core`

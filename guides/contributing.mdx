@@ -1,0 +1,450 @@
+---
+title: Contributing
+description: Learn how to contribute to Zayne Labs Toolkit development
+icon: "code-pull-request"
+---
+
+## Welcome Contributors
+
+Thank you for your interest in contributing to Zayne Labs Toolkit! This guide will help you get started with development and understand our workflows.
+
+<Note>
+  The toolkit is an open-source project maintained by Ryan Zayne. We welcome contributions from developers of all skill levels.
+</Note>
+
+## Getting Started
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js**: v18.x or higher
+- **pnpm**: v10.28.2 (package manager)
+- **Git**: For version control
+
+### Development Setup
+
+<Steps>
+  <Step title="Fork and clone the repository">
+    ```bash
+    git clone https://github.com/zayne-labs/toolkit.git
+    cd toolkit
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    The project uses pnpm workspaces:
+
+    ```bash
+    pnpm install
+    ```
+  </Step>
+
+  <Step title="Build all packages">
+    ```bash
+    pnpm build
+    ```
+  </Step>
+
+  <Step title="Verify setup">
+    Run tests to ensure everything is working:
+
+    ```bash
+    pnpm test
+    ```
+  </Step>
+</Steps>
+
+## Project Structure
+
+The repository is organized as a monorepo using [Turborepo](https://turbo.build/):
+
+```bash
+toolkit/
+├── packages/
+│   ├── toolkit-core/          # Core utilities and functions
+│   ├── toolkit-react/         # React hooks and utilities
+│   └── toolkit-type-helpers/  # TypeScript type utilities
+├── apps/
+│   └── dev/                   # Development playground
+├── .changeset/                # Changesets for versioning
+├── .github/                   # GitHub Actions workflows
+└── turbo.json                 # Turborepo configuration
+```
+
+## Development Workflow
+
+### Available Scripts
+
+**Root-level scripts:**
+
+<CodeGroup>
+```bash Build
+# Build all packages
+pnpm build
+
+# Build in development mode
+pnpm build:dev
+
+# Build and test (with linting)
+pnpm build:test
+```
+
+```bash Development
+# Watch mode for specific packages
+pnpm dev:core          # toolkit-core
+pnpm dev:react         # toolkit-react
+pnpm dev:type-helpers  # toolkit-type-helpers
+pnpm dev:packages      # All packages
+
+# Development app
+pnpm dev:dev
+```
+
+```bash Testing
+# Run all tests
+pnpm test
+
+# Run tests in watch mode
+pnpm test:dev
+
+# Run browser tests
+pnpm test:browser
+
+# Generate coverage reports
+pnpm test:coverage
+```
+
+```bash Linting
+# Run ESLint
+pnpm lint:eslint
+
+# Interactive ESLint fix
+pnpm lint:eslint:interactive
+
+# Format with Prettier
+pnpm lint:format
+
+# Type checking
+pnpm lint:type-check
+
+# Check bundle size
+pnpm lint:size
+
+# Validate package.json
+pnpm lint:publint
+
+# Check TypeScript types
+pnpm lint:attw
+```
+</CodeGroup>
+
+### Package-Specific Development
+
+To work on a specific package:
+
+<Tabs>
+  <Tab title="toolkit-core">
+    ```bash
+    cd packages/toolkit-core
+    
+    # Development mode
+    pnpm dev
+    
+    # Run tests
+    pnpm test
+    
+    # Type checking
+    pnpm lint:type-check
+    ```
+  </Tab>
+  
+  <Tab title="toolkit-react">
+    ```bash
+    cd packages/toolkit-react
+    
+    # Development mode
+    pnpm dev
+    
+    # Type checking
+    pnpm lint:type-check
+    ```
+  </Tab>
+  
+  <Tab title="toolkit-type-helpers">
+    ```bash
+    cd packages/toolkit-type-helpers
+    
+    # Development mode
+    pnpm dev
+    
+    # Run tests
+    pnpm test
+    ```
+  </Tab>
+</Tabs>
+
+## Making Changes
+
+### Adding New Features
+
+<Steps>
+  <Step title="Create a new branch">
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+  </Step>
+
+  <Step title="Develop your feature">
+    - Add your code in the appropriate package under `src/`
+    - Export your function/hook from the package's `index.ts`
+    - Follow existing code patterns and conventions
+  </Step>
+
+  <Step title="Write tests">
+    Create test files alongside your code:
+
+    ```typescript title="yourFeature.test.ts"
+    import { describe, expect, it } from "vitest";
+    import { yourFeature } from "./yourFeature";
+
+    describe("yourFeature", () => {
+      it("should work correctly", () => {
+        expect(yourFeature()).toBe(expected);
+      });
+    });
+    ```
+  </Step>
+
+  <Step title="Add TypeScript types">
+    Ensure all functions have proper TypeScript types:
+
+    ```typescript
+    export const yourFeature = <T>(input: T): T => {
+      // Implementation
+    };
+    ```
+  </Step>
+</Steps>
+
+### Code Quality Standards
+
+<AccordionGroup>
+  <Accordion title="TypeScript Guidelines">
+    - Use TypeScript 5.9.x features
+    - Prefer type inference over explicit types
+    - Use `type` for object shapes, `interface` for extensible contracts
+    - Avoid `any` - use `unknown` or proper types
+    - Export types separately from implementation
+  </Accordion>
+
+  <Accordion title="Testing Requirements">
+    - Write tests for all new features
+    - Use Vitest for unit tests
+    - Test edge cases and error conditions
+    - Maintain or improve code coverage
+    - Use `happy-dom` for browser environment tests
+  </Accordion>
+
+  <Accordion title="Code Style">
+    - Follow the ESLint configuration
+    - Use Prettier for formatting (automatic via lint-staged)
+    - Use meaningful variable and function names
+    - Add JSDoc comments for public APIs
+    - Keep functions small and focused
+  </Accordion>
+
+  <Accordion title="Performance">
+    - Monitor bundle size with size-limit
+    - Avoid unnecessary dependencies
+    - Use tree-shakeable exports
+    - Consider lazy loading for heavy features
+  </Accordion>
+</AccordionGroup>
+
+## Commit Guidelines
+
+The project uses Husky for pre-commit hooks:
+
+### Pre-commit Checks
+
+```javascript title="lint-staged.config.js"
+export default {
+  "*.{js,ts,jsx,tsx}": () => "pnpm lint:eslint:root",
+  "*.{ts,tsx}": () => ["pnpm test", "pnpm lint:type-check"],
+  "package.json": () => "pnpm lint:publint",
+  "packages/**/*.{js,ts,jsx,tsx}": () => "pnpm lint:size",
+};
+```
+
+Before committing, the following checks run automatically:
+1. ESLint on changed files
+2. Tests for TypeScript files
+3. Type checking
+4. Bundle size validation
+5. Package.json validation
+
+### Commit Message Format
+
+Use clear, descriptive commit messages:
+
+```bash
+# Good examples
+git commit -m "feat: add useLocalStorage hook"
+git commit -m "fix: resolve debounce timing issue"
+git commit -m "docs: update API reference for createStore"
+git commit -m "refactor: simplify throttle implementation"
+
+# Bad examples
+git commit -m "update stuff"
+git commit -m "fix bug"
+```
+
+## Changesets
+
+The project uses [Changesets](https://github.com/changesets/changesets) for version management.
+
+### Creating a Changeset
+
+When your PR includes user-facing changes:
+
+<Steps>
+  <Step title="Run changeset command">
+    ```bash
+    pnpm changeset
+    ```
+  </Step>
+
+  <Step title="Select affected packages">
+    Choose which packages your changes affect:
+    - `@zayne-labs/toolkit-core`
+    - `@zayne-labs/toolkit-react`
+    - `@zayne-labs/toolkit-type-helpers`
+  </Step>
+
+  <Step title="Choose version bump">
+    Select the type of version bump:
+    - **patch**: Bug fixes and small changes
+    - **minor**: New features (backwards compatible)
+    - **major**: Breaking changes
+  </Step>
+
+  <Step title="Write changeset summary">
+    Describe your changes for the changelog:
+    
+    ```markdown
+    Add useLocalStorage hook for persistent state management
+    
+    This hook provides a simple way to sync React state with localStorage,
+    including automatic serialization and type-safety.
+    ```
+  </Step>
+</Steps>
+
+## Continuous Integration
+
+The project uses GitHub Actions for CI/CD:
+
+### Automated Checks
+
+<CardGroup cols={2}>
+  <Card title="Lint and Type Check" icon="check">
+    Runs ESLint and TypeScript checks on all PRs
+  </Card>
+  
+  <Card title="Size Limit" icon="weight-scale">
+    Validates bundle sizes stay within limits
+  </Card>
+  
+  <Card title="Release Preview" icon="eye">
+    Publishes preview releases via pkg.pr.new
+  </Card>
+  
+  <Card title="Dependency Review" icon="shield">
+    Scans for security vulnerabilities
+  </Card>
+</CardGroup>
+
+### Test Release
+
+Every PR automatically gets a test release published via [pkg.pr.new](https://github.com/stackblitz/pkg.pr.new):
+
+```yaml title=".github/workflows/release-and-publish(pkg.pr.new).yml"
+- name: Deploy and test release via pkg.pr.new
+  run: pnpm release:test
+```
+
+You can test your changes before merging:
+
+```bash
+# Install from test release
+pnpm add https://pkg.pr.new/@zayne-labs/toolkit-core@<pr-number>
+```
+
+## Pull Request Process
+
+<Steps>
+  <Step title="Prepare your PR">
+    - Ensure all tests pass
+    - Add changeset if needed
+    - Update documentation
+    - Write clear PR description
+  </Step>
+
+  <Step title="Submit PR">
+    - Push your branch to GitHub
+    - Open a pull request against `main`
+    - Fill out the PR template
+    - Link any related issues
+  </Step>
+
+  <Step title="Code Review">
+    - Wait for maintainer review
+    - Address any feedback
+    - Keep PR up to date with main
+  </Step>
+
+  <Step title="Merge">
+    - Once approved, your PR will be merged
+    - Changesets will handle versioning
+    - Changes will be published automatically
+  </Step>
+</Steps>
+
+## Release Process
+
+Releases are automated using Changesets:
+
+1. When PRs with changesets are merged, a "Version Packages" PR is created
+2. This PR updates version numbers and CHANGELOG files
+3. When merged, packages are automatically published to npm
+4. Release notes are generated via [changelogithub](https://github.com/antfu/changelogithub)
+
+## Getting Help
+
+<CardGroup cols={2}>
+  <Card title="GitHub Discussions" icon="comments" href="https://github.com/zayne-labs/toolkit/discussions">
+    Ask questions and share ideas
+  </Card>
+  
+  <Card title="GitHub Issues" icon="bug" href="https://github.com/zayne-labs/toolkit/issues">
+    Report bugs and request features
+  </Card>
+  
+  <Card title="Contributing Guidelines" icon="book" href="https://github.com/zayne-labs/contribute">
+    Detailed contribution guidelines
+  </Card>
+  
+  <Card title="Code of Conduct" icon="heart" href="https://github.com/zayne-labs/toolkit">
+    Community guidelines
+  </Card>
+</CardGroup>
+
+## Recognition
+
+All contributors are recognized in:
+- GitHub contributors page
+- Release notes
+- Project README
+
+Thank you for contributing to Zayne Labs Toolkit!

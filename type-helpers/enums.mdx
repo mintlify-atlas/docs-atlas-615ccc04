@@ -1,0 +1,598 @@
+---
+title: Enum Utilities
+description: Create type-safe enums with powerful type inference and union extraction capabilities
+---
+
+Enum utilities provide a type-safe way to create enum-like structures with automatic union type inference.
+
+## Why Use Enum Utilities?
+
+Traditional TypeScript enums have limitations:
+
+<CardGroup cols={2}>
+  <Card title="TypeScript Enums">
+    - Generate runtime code
+    - Can't be used in const contexts
+    - Limited type inference
+    - Non-standard JavaScript
+  </Card>
+  
+  <Card title="defineEnum">
+    - Zero runtime overhead
+    - Full const support
+    - Powerful type inference
+    - Plain JavaScript objects
+  </Card>
+</CardGroup>
+
+## Basic Usage
+
+### defineEnum
+
+Create a type-safe enum with optional union extraction.
+
+<Tabs>
+  <Tab title="Basic Enum">
+    ```typescript
+    import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+    const Status = defineEnum({
+      PENDING: 'pending',
+      ACTIVE: 'active',
+      COMPLETED: 'completed'
+    } as const);
+
+    // Usage
+    const currentStatus = Status.PENDING; // 'pending'
+
+    // TypeScript knows all properties
+    Status.PENDING;    // 'pending'
+    Status.ACTIVE;     // 'active'
+    Status.COMPLETED;  // 'completed'
+    ```
+  </Tab>
+  
+  <Tab title="With Value Union">
+    ```typescript
+    import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+    const Status = defineEnum({
+      PENDING: 'pending',
+      ACTIVE: 'active',
+      COMPLETED: 'completed'
+    } as const, { inferredUnionVariant: 'values' });
+
+    // Extract union of values
+    type StatusValue = typeof Status.$inferUnion;
+    // Result: 'pending' | 'active' | 'completed'
+
+    // Use in function signatures
+    function updateStatus(status: StatusValue) {
+      // status must be 'pending' | 'active' | 'completed'
+    }
+
+    updateStatus('pending');     // OK
+    updateStatus('invalid');     // Error
+    ```
+  </Tab>
+  
+  <Tab title="With Key Union">
+    ```typescript
+    import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+    const Status = defineEnum({
+      PENDING: 'pending',
+      ACTIVE: 'active',
+      COMPLETED: 'completed'
+    } as const, { inferredUnionVariant: 'keys' });
+
+    // Extract union of keys
+    type StatusKey = typeof Status.$inferUnion;
+    // Result: 'PENDING' | 'ACTIVE' | 'COMPLETED'
+
+    function getStatusLabel(key: StatusKey) {
+      return Status[key];
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+**Type Signature**
+
+```typescript
+type DefineEnumOptions = {
+  inferredUnionVariant?: "none" | InferredUnionVariant;
+  writeableLevel?: WriteableLevel;
+};
+
+export const defineEnum = <
+  const TValue extends object,
+  TOptions extends DefineEnumOptions = DefineEnumOptions,
+>(
+  value: TValue,
+  _options?: TOptions
+) => {
+  return value as TComputedInferredUnionVariant extends InferredUnionVariant ?
+    Enum<Writeable<TValue, TComputedWriteableLevel>, TComputedInferredUnionVariant>
+  : Writeable<TValue, TComputedWriteableLevel>;
+};
+```
+</Info>
+
+## Options
+
+### inferredUnionVariant
+
+Controls which union type to infer.
+
+<CodeGroup>
+```typescript none (default)
+import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+const Colors = defineEnum({
+  RED: '#ff0000',
+  GREEN: '#00ff00',
+  BLUE: '#0000ff'
+} as const);
+
+// No $inferUnion property available
+// Use as simple object
+```
+
+```typescript values
+import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+const Colors = defineEnum({
+  RED: '#ff0000',
+  GREEN: '#00ff00',
+  BLUE: '#0000ff'
+} as const, { inferredUnionVariant: 'values' });
+
+type ColorValue = typeof Colors.$inferUnion;
+// Result: '#ff0000' | '#00ff00' | '#0000ff'
+```
+
+```typescript keys
+import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+const Colors = defineEnum({
+  RED: '#ff0000',
+  GREEN: '#00ff00',
+  BLUE: '#0000ff'
+} as const, { inferredUnionVariant: 'keys' });
+
+type ColorKey = typeof Colors.$inferUnion;
+// Result: 'RED' | 'GREEN' | 'BLUE'
+```
+</CodeGroup>
+
+### writeableLevel
+
+Controls whether readonly modifiers are removed.
+
+<Tabs>
+  <Tab title="shallow (default)">
+    ```typescript
+    import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+    const Config = defineEnum({
+      API: { url: 'https://api.example.com' as const }
+    } as const, { writeableLevel: 'shallow' });
+
+    // Top-level is writeable, nested values preserve const
+    Config.API = { url: 'new-url' }; // OK
+    ```
+  </Tab>
+  
+  <Tab title="deep">
+    ```typescript
+    import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+    const Config = defineEnum({
+      API: { url: 'https://api.example.com' as const }
+    } as const, { writeableLevel: 'deep' });
+
+    // Everything is writeable
+    Config.API.url = 'new-url'; // OK
+    ```
+  </Tab>
+</Tabs>
+
+## defineEnumDeep
+
+Convenience function for deep writeable enums.
+
+```typescript
+import { defineEnumDeep } from '@zayne-labs/toolkit-type-helpers';
+
+const Config = defineEnumDeep({
+  API: {
+    URL: 'https://api.example.com',
+    ENDPOINTS: {
+      USERS: '/users',
+      POSTS: '/posts'
+    }
+  },
+  DATABASE: {
+    HOST: 'localhost',
+    PORT: 5432
+  }
+} as const, { inferredUnionVariant: 'values' });
+
+// All nested properties are writeable
+Config.API.ENDPOINTS.USERS = '/api/users';
+
+// Can still extract union
+type ConfigValue = typeof Config.$inferUnion;
+```
+
+<Info>
+**Type Signature**
+
+```typescript
+type DefineEnumDeepOptions = Pick<DefineEnumOptions, "inferredUnionVariant">;
+
+export const defineEnumDeep = <
+  const TValue extends object,
+  TOptions extends DefineEnumDeepOptions = DefineEnumDeepOptions,
+>(
+  value: TValue,
+  _options?: TOptions
+) => {
+  type ModifiedOptions = TOptions & { writeableLevel: "deep" };
+  return defineEnum<TValue, ModifiedOptions>(value);
+};
+```
+</Info>
+
+## Practical Examples
+
+### HTTP Status Codes
+
+```typescript
+import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+const HttpStatus = defineEnum({
+  OK: 200,
+  CREATED: 201,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  NOT_FOUND: 404,
+  INTERNAL_SERVER_ERROR: 500
+} as const, { inferredUnionVariant: 'values' });
+
+type StatusCode = typeof HttpStatus.$inferUnion;
+// Result: 200 | 201 | 400 | 401 | 404 | 500
+
+function handleResponse(status: StatusCode) {
+  switch (status) {
+    case HttpStatus.OK:
+      console.log('Success!');
+      break;
+    case HttpStatus.NOT_FOUND:
+      console.log('Not found');
+      break;
+    // ... handle other cases
+  }
+}
+```
+
+### API Routes
+
+```typescript
+import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+const ApiRoutes = defineEnum({
+  USERS: '/api/users',
+  POSTS: '/api/posts',
+  COMMENTS: '/api/comments',
+  AUTH_LOGIN: '/api/auth/login',
+  AUTH_LOGOUT: '/api/auth/logout'
+} as const, { inferredUnionVariant: 'values' });
+
+type ApiRoute = typeof ApiRoutes.$inferUnion;
+
+function fetchFromApi(route: ApiRoute) {
+  return fetch(route);
+}
+
+fetchFromApi(ApiRoutes.USERS); // OK
+fetchFromApi('/invalid');      // Error
+```
+
+### User Roles & Permissions
+
+```typescript
+import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+const UserRole = defineEnum({
+  ADMIN: 'admin',
+  MODERATOR: 'moderator',
+  USER: 'user',
+  GUEST: 'guest'
+} as const, { inferredUnionVariant: 'values' });
+
+type Role = typeof UserRole.$inferUnion;
+// Result: 'admin' | 'moderator' | 'user' | 'guest'
+
+interface User {
+  id: string;
+  name: string;
+  role: Role;
+}
+
+function hasPermission(user: User, requiredRole: Role): boolean {
+  const roleHierarchy = {
+    [UserRole.ADMIN]: 4,
+    [UserRole.MODERATOR]: 3,
+    [UserRole.USER]: 2,
+    [UserRole.GUEST]: 1,
+  };
+  
+  return roleHierarchy[user.role] >= roleHierarchy[requiredRole];
+}
+```
+
+### Event Types
+
+```typescript
+import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+const EventType = defineEnum({
+  USER_LOGIN: 'user.login',
+  USER_LOGOUT: 'user.logout',
+  USER_REGISTER: 'user.register',
+  POST_CREATE: 'post.create',
+  POST_UPDATE: 'post.update',
+  POST_DELETE: 'post.delete'
+} as const, { inferredUnionVariant: 'values' });
+
+type Event = typeof EventType.$inferUnion;
+
+interface EventPayload {
+  type: Event;
+  timestamp: Date;
+  data: unknown;
+}
+
+function trackEvent(event: EventPayload) {
+  console.log(`Event: ${event.type} at ${event.timestamp}`);
+}
+
+trackEvent({
+  type: EventType.USER_LOGIN,
+  timestamp: new Date(),
+  data: { userId: '123' }
+});
+```
+
+### Configuration Keys
+
+```typescript
+import { defineEnumDeep } from '@zayne-labs/toolkit-type-helpers';
+
+const Config = defineEnumDeep({
+  API: {
+    BASE_URL: 'https://api.example.com',
+    TIMEOUT: 5000,
+    RETRY_ATTEMPTS: 3
+  },
+  FEATURES: {
+    DARK_MODE: 'darkMode',
+    ANALYTICS: 'analytics',
+    NOTIFICATIONS: 'notifications'
+  }
+} as const, { inferredUnionVariant: 'values' });
+
+type ConfigValue = typeof Config.$inferUnion;
+
+// Use specific config values
+const apiUrl = Config.API.BASE_URL;
+const timeout = Config.API.TIMEOUT;
+```
+
+### Form Field Names
+
+```typescript
+import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+const FormField = defineEnum({
+  EMAIL: 'email',
+  PASSWORD: 'password',
+  REMEMBER_ME: 'rememberMe',
+  TERMS_ACCEPTED: 'termsAccepted'
+} as const, { inferredUnionVariant: 'values' });
+
+type FieldName = typeof FormField.$inferUnion;
+
+type FormData = Record<FieldName, unknown>;
+
+function validateField(field: FieldName, value: unknown) {
+  switch (field) {
+    case FormField.EMAIL:
+      // Validate email
+      break;
+    case FormField.PASSWORD:
+      // Validate password
+      break;
+    // ... other cases
+  }
+}
+```
+
+## Comparison with Alternatives
+
+<Tabs>
+  <Tab title="defineEnum">
+    ```typescript
+    import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+    const Status = defineEnum({
+      PENDING: 'pending',
+      ACTIVE: 'active'
+    } as const, { inferredUnionVariant: 'values' });
+
+    type Value = typeof Status.$inferUnion;
+    // Result: 'pending' | 'active'
+
+    // Pros:
+    // - Zero runtime overhead
+    // - Automatic union extraction
+    // - Type-safe access
+    // - Works with const contexts
+    ```
+  </Tab>
+  
+  <Tab title="TypeScript Enum">
+    ```typescript
+    enum Status {
+      PENDING = 'pending',
+      ACTIVE = 'active'
+    }
+
+    type Value = `${Status}`;
+    // Result: 'pending' | 'active'
+
+    // Cons:
+    // - Generates runtime code
+    // - Non-standard JavaScript
+    // - Can't be used in const contexts
+    // - Limited type inference
+    ```
+  </Tab>
+  
+  <Tab title="Plain Object">
+    ```typescript
+    const Status = {
+      PENDING: 'pending',
+      ACTIVE: 'active'
+    } as const;
+
+    type Value = typeof Status[keyof typeof Status];
+    // Result: 'pending' | 'active'
+
+    // Cons:
+    // - Manual union extraction
+    // - No $inferUnion helper
+    // - More verbose type definitions
+    ```
+  </Tab>
+  
+  <Tab title="Union Type">
+    ```typescript
+    type Status = 'pending' | 'active';
+
+    // Cons:
+    // - No constants for values
+    // - String literals everywhere
+    // - Easy to make typos
+    // - No single source of truth
+    ```
+  </Tab>
+</Tabs>
+
+## Advanced Patterns
+
+### Nested Enums
+
+```typescript
+import { defineEnumDeep } from '@zayne-labs/toolkit-type-helpers';
+
+const ErrorCode = defineEnumDeep({
+  AUTH: {
+    INVALID_CREDENTIALS: 'auth.invalid_credentials',
+    TOKEN_EXPIRED: 'auth.token_expired',
+    INSUFFICIENT_PERMISSIONS: 'auth.insufficient_permissions'
+  },
+  VALIDATION: {
+    REQUIRED_FIELD: 'validation.required_field',
+    INVALID_FORMAT: 'validation.invalid_format'
+  },
+  SERVER: {
+    INTERNAL_ERROR: 'server.internal_error',
+    SERVICE_UNAVAILABLE: 'server.service_unavailable'
+  }
+} as const, { inferredUnionVariant: 'values' });
+
+type ErrorCodeValue = typeof ErrorCode.$inferUnion;
+
+function handleError(code: ErrorCodeValue) {
+  if (code.startsWith('auth.')) {
+    // Handle auth errors
+  }
+}
+```
+
+### Combining with Type Guards
+
+```typescript
+import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+import { isString } from '@zayne-labs/toolkit-type-helpers';
+
+const Status = defineEnum({
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  COMPLETED: 'completed'
+} as const, { inferredUnionVariant: 'values' });
+
+type StatusValue = typeof Status.$inferUnion;
+
+function isValidStatus(value: unknown): value is StatusValue {
+  return (
+    isString(value) &&
+    Object.values(Status).includes(value as StatusValue)
+  );
+}
+
+// Use in validation
+function updateStatus(status: unknown) {
+  if (!isValidStatus(status)) {
+    throw new Error('Invalid status');
+  }
+  // TypeScript knows status is StatusValue here
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="When to Use defineEnum">
+    Use `defineEnum` when:
+    - You need a set of related constants
+    - You want automatic union type extraction
+    - You prefer plain JavaScript objects over TypeScript enums
+    - You need to use values in const contexts
+    - You want zero runtime overhead
+  </Accordion>
+  
+  <Accordion title="Choosing Union Variant">
+    - Use `'values'` when the enum values are what matter (e.g., status strings, error codes)
+    - Use `'keys'` when the property names are what matter (rare)
+    - Use `'none'` (default) when you don't need union extraction
+  </Accordion>
+  
+  <Accordion title="Shallow vs Deep">
+    - Use `defineEnum` (shallow) for simple enums with primitive values
+    - Use `defineEnumDeep` for nested configuration objects
+    - Deep mode has compile-time overhead for complex types
+  </Accordion>
+  
+  <Accordion title="Naming Conventions">
+    - Use PascalCase for enum objects: `UserRole`, `HttpStatus`
+    - Use UPPER_SNAKE_CASE for enum keys: `PENDING`, `NOT_FOUND`
+    - Use descriptive names that indicate purpose
+  </Accordion>
+</AccordionGroup>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Type Utilities" icon="tools" href="/type-helpers/type-utilities">
+    Learn about ExtractUnion and other utilities
+  </Card>
+  
+  <Card title="Guards & Assertions" icon="shield-halved" href="/type-helpers/guards-and-assertions">
+    Validate enum values at runtime
+  </Card>
+</CardGroup>

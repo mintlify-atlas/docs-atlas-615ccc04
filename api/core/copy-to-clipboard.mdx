@@ -1,0 +1,207 @@
+---
+title: "copyToClipboard"
+description: "Copy text or Blob data to the system clipboard with fallback support."
+---
+
+## Overview
+
+The `copyToClipboard` function provides a modern way to copy content to the clipboard using the Clipboard API, with automatic fallback to legacy methods for broader browser support.
+
+## Import
+
+```typescript
+import { copyToClipboard } from "@zayne-labs/toolkit-core";
+```
+
+## Signature
+
+```typescript
+function copyToClipboard(
+  valueToCopy: AllowedClipboardItems | Promise<AllowedClipboardItems>,
+  options?: CopyToClipboardOptions
+): Promise<void>
+```
+
+## Parameters
+
+<ParamField path="valueToCopy" type="string | Blob | Promise<string | Blob>" required>
+  The content to copy to the clipboard. Can be a string, Blob, or a Promise that resolves to either.
+</ParamField>
+
+<ParamField path="options" type="CopyToClipboardOptions">
+  Optional configuration object.
+  
+  <ParamField path="options.mimeType" type="string">
+    The MIME type of the content. Defaults to `"text/plain"`.
+    
+    Common values:
+    - `"text/plain"` (default)
+    - `"text/html"`
+    - `"image/png"`
+  </ParamField>
+  
+  <ParamField path="options.onSuccess" type="() => void">
+    Callback function called when the copy operation succeeds.
+  </ParamField>
+  
+  <ParamField path="options.onError" type="(error: unknown) => void">
+    Callback function called when the copy operation fails.
+  </ParamField>
+  
+  <ParamField path="options.onCopied" type="() => void">
+    Callback function called after copy completes (whether via Clipboard API or fallback).
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="Promise<void>" type="Promise">
+  A promise that resolves when the copy operation completes. Errors are caught internally and passed to `onError`.
+</ResponseField>
+
+## Usage Examples
+
+### Basic Text Copy
+
+```typescript
+const copyText = async () => {
+  await copyToClipboard("Hello, clipboard!");
+  console.log("Text copied!");
+};
+```
+
+### With Success Callback
+
+```typescript
+const copyWithFeedback = async (text: string) => {
+  await copyToClipboard(text, {
+    onSuccess: () => {
+      console.log("Successfully copied to clipboard!");
+    },
+    onError: (error) => {
+      console.error("Failed to copy:", error);
+    }
+  });
+};
+```
+
+### Copy HTML Content
+
+```typescript
+const copyHTML = async () => {
+  const htmlContent = "<strong>Bold text</strong>";
+  
+  await copyToClipboard(htmlContent, {
+    mimeType: "text/html",
+    onCopied: () => {
+      console.log("HTML copied!");
+    }
+  });
+};
+```
+
+### Copy Image Blob
+
+```typescript
+const copyImage = async (imageUrl: string) => {
+  const response = await fetch(imageUrl);
+  const blob = await response.blob();
+  
+  await copyToClipboard(blob, {
+    mimeType: "image/png",
+    onSuccess: () => console.log("Image copied to clipboard"),
+    onError: (error) => console.error("Failed to copy image:", error)
+  });
+};
+```
+
+### Copy with Async Content
+
+```typescript
+const copyAsyncContent = async () => {
+  // Pass a Promise directly
+  await copyToClipboard(
+    fetch("/api/data").then(res => res.text()),
+    {
+      onSuccess: () => console.log("Async content copied!")
+    }
+  );
+};
+```
+
+### React Integration Example
+
+```tsx
+import { copyToClipboard } from "@zayne-labs/toolkit-core";
+import { useState } from "react";
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await copyToClipboard(text, {
+      onSuccess: () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      },
+      onError: (error) => {
+        console.error("Copy failed:", error);
+      }
+    });
+  };
+
+  return (
+    <button onClick={handleCopy}>
+      {copied ? "Copied!" : "Copy to Clipboard"}
+    </button>
+  );
+}
+```
+
+## Types
+
+### CopyToClipboardOptions
+
+```typescript
+type CopyToClipboardOptions = {
+  mimeType?: "text/plain" | string;
+  onCopied?: () => void;
+  onError?: (error: unknown) => void;
+  onSuccess?: () => void;
+};
+```
+
+### AllowedClipboardItems
+
+```typescript
+type AllowedClipboardItems = string | Blob;
+```
+
+## Behavior
+
+1. **Primary Method**: Uses the modern Clipboard API (`navigator.clipboard.write`)
+2. **MIME Type Check**: Validates that the specified MIME type is supported
+3. **Fallback**: For text content, automatically falls back to `document.execCommand('copy')` if the Clipboard API fails
+4. **Error Handling**: All errors are caught and logged, with optional `onError` callback
+
+## Browser Support
+
+- **Modern Browsers**: Full support via Clipboard API
+- **Legacy Browsers**: Automatic fallback for text content
+- **HTTPS Required**: Clipboard API requires secure context (HTTPS or localhost)
+
+## Common Use Cases
+
+- Copy code snippets from documentation
+- Copy share links or URLs
+- Copy formatted text or HTML
+- Copy generated content (tokens, IDs, etc.)
+- Copy images or other media
+
+## Notes
+
+- The Clipboard API requires a secure context (HTTPS or localhost)
+- Some MIME types may not be supported in all browsers
+- The fallback method only works for string content
+- For better UX, always provide user feedback via callbacks
+- The `onCopied` callback fires regardless of whether the primary or fallback method was used

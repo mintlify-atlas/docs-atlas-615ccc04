@@ -1,0 +1,727 @@
+---
+title: DOM Utilities
+description: Browser APIs, event handling, scroll management, clipboard operations, and DOM manipulation helpers
+---
+
+## Overview
+
+DOM utilities provide convenient wrappers around browser APIs and helpers for common DOM manipulation tasks. These utilities include SSR-safe checks and handle edge cases for you.
+
+---
+
+## Clipboard
+
+### copyToClipboard
+
+Copy text or blobs to the clipboard with fallback support for older browsers.
+
+```typescript
+import { copyToClipboard } from '@zayne-labs/toolkit-core';
+
+// Copy text
+await copyToClipboard('Hello, World!');
+
+// Copy with callbacks
+await copyToClipboard('Secret code: 12345', {
+  onSuccess: () => console.log('Copied!'),
+  onError: (error) => console.error('Failed:', error),
+  onCopied: () => showNotification('Copied to clipboard')
+});
+
+// Copy blob (e.g., image)
+const blob = await fetch('/image.png').then(r => r.blob());
+await copyToClipboard(blob, {
+  mimeType: 'image/png'
+});
+```
+
+**Type Signature:**
+```typescript
+type CopyToClipboardOptions = {
+  mimeType?: 'text/plain' | string;
+  onSuccess?: () => void;
+  onError?: (error: unknown) => void;
+  onCopied?: () => void;
+};
+
+type AllowedClipboardItems = string | Blob;
+
+const copyToClipboard: (
+  valueToCopy: AllowedClipboardItems | Promise<AllowedClipboardItems>,
+  options?: CopyToClipboardOptions
+) => Promise<void>
+```
+
+### Features
+
+<Tabs>
+  <Tab title="Automatic Fallback">
+    Automatically falls back to `document.execCommand` for older browsers.
+    
+    ```typescript
+    // Works in all browsers
+    await copyToClipboard('Legacy browser support!');
+    ```
+  </Tab>
+  
+  <Tab title="MIME Type Support">
+    Copy different content types to clipboard.
+    
+    ```typescript
+    // Copy HTML
+    await copyToClipboard(
+      new Blob(['<b>Bold text</b>'], { type: 'text/html' }),
+      { mimeType: 'text/html' }
+    );
+    
+    // Copy image
+    const canvas = document.querySelector('canvas');
+    canvas.toBlob(async (blob) => {
+      await copyToClipboard(blob, { mimeType: 'image/png' });
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Promise Support">
+    Pass a promise that resolves to the content.
+    
+    ```typescript
+    // Copy async content
+    const textPromise = fetch('/api/secret').then(r => r.text());
+    await copyToClipboard(textPromise);
+    
+    // Copy blob promise
+    const imagePromise = fetch('/image.png').then(r => r.blob());
+    await copyToClipboard(imagePromise, { mimeType: 'image/png' });
+    ```
+  </Tab>
+</Tabs>
+
+### Complete Example
+
+```typescript
+import { copyToClipboard } from '@zayne-labs/toolkit-core';
+
+// Copy button component
+const setupCopyButton = (button: HTMLButtonElement, text: string) => {
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    button.textContent = 'Copying...';
+    
+    await copyToClipboard(text, {
+      onSuccess: () => {
+        button.textContent = 'Copied!';
+        setTimeout(() => {
+          button.textContent = 'Copy';
+          button.disabled = false;
+        }, 2000);
+      },
+      onError: (error) => {
+        button.textContent = 'Failed';
+        console.error('Copy failed:', error);
+        button.disabled = false;
+      }
+    });
+  });
+};
+
+const copyBtn = document.querySelector<HTMLButtonElement>('#copy-btn');
+setupCopyButton(copyBtn, 'Code to copy');
+```
+
+<Warning>
+  The Clipboard API requires a secure context (HTTPS) in modern browsers. The fallback method works in HTTP but is deprecated.
+</Warning>
+
+---
+
+## Event Handling
+
+### on
+
+Add event listeners with automatic cleanup.
+
+```typescript
+import { on } from '@zayne-labs/toolkit-core';
+
+// Basic usage
+const cleanup = on('click', document.body, (event) => {
+  console.log('Body clicked:', event);
+});
+
+// Remove listener
+cleanup();
+
+// Re-attach listener
+const reattach = cleanup();
+reattach(); // Listener is back
+```
+
+**Type Signature:**
+```typescript
+const on: <
+  TEvent extends keyof WindowEventMap,
+  TElement extends Window | Document | HTMLElement
+>(
+  event: TEvent,
+  element: TElement,
+  listener: (event: WindowEventMap[TEvent]) => void,
+  options?: boolean | AddEventListenerOptions
+) => () => () => void
+```
+
+### Event Options
+
+```typescript
+import { on } from '@zayne-labs/toolkit-core';
+
+// Passive listener (better scroll performance)
+const cleanup1 = on('scroll', window, handleScroll, { passive: true });
+
+// Capture phase
+const cleanup2 = on('click', document, handleClick, { capture: true });
+
+// Once (auto-removes after first trigger)
+const cleanup3 = on('load', window, handleLoad, { once: true });
+
+// Combined options
+const cleanup4 = on('touchstart', element, handleTouch, {
+  passive: true,
+  capture: false
+});
+```
+
+---
+
+### onClickOutside
+
+Detect clicks outside of element(s).
+
+```typescript
+import { onClickOutside } from '@zayne-labs/toolkit-core';
+
+const modal = document.querySelector('.modal');
+
+// Single element
+const cleanup = onClickOutside(modal, (event) => {
+  console.log('Clicked outside modal');
+  closeModal();
+});
+
+// Multiple elements
+const menu = document.querySelector('.menu');
+const button = document.querySelector('.menu-button');
+
+const cleanup2 = onClickOutside([menu, button], (event) => {
+  console.log('Clicked outside menu and button');
+  closeMenu();
+});
+
+// With options
+const cleanup3 = onClickOutside(modal, closeModal, {
+  capture: true
+});
+```
+
+**Type Signature:**
+```typescript
+const onClickOutside: <TElement extends HTMLElement>(
+  elementOrElementArray: TElement | null | Array<TElement | null>,
+  callback: (event: MouseEvent | TouchEvent) => void,
+  options?: boolean | AddEventListenerOptions
+) => () => void
+```
+
+### Practical Examples
+
+```typescript
+import { on, onClickOutside } from '@zayne-labs/toolkit-core';
+
+// Dropdown menu
+class Dropdown {
+  private element: HTMLElement;
+  private cleanupOutside: (() => void) | null = null;
+  
+  constructor(element: HTMLElement) {
+    this.element = element;
+    
+    // Open on button click
+    const button = element.querySelector('.dropdown-button');
+    on('click', button, () => this.toggle());
+  }
+  
+  open() {
+    this.element.classList.add('open');
+    
+    // Close on outside click
+    this.cleanupOutside = onClickOutside(this.element, () => {
+      this.close();
+    });
+  }
+  
+  close() {
+    this.element.classList.remove('open');
+    this.cleanupOutside?.();
+    this.cleanupOutside = null;
+  }
+  
+  toggle() {
+    if (this.element.classList.contains('open')) {
+      this.close();
+    } else {
+      this.open();
+    }
+  }
+}
+
+// Modal with ESC key
+const modal = document.querySelector('.modal');
+let cleanupEsc: (() => void) | null = null;
+
+const openModal = () => {
+  modal.classList.add('visible');
+  
+  // Close on outside click
+  const cleanupOutside = onClickOutside(modal, closeModal);
+  
+  // Close on ESC key
+  cleanupEsc = on('keydown', document, (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+};
+
+const closeModal = () => {
+  modal.classList.remove('visible');
+  cleanupOutside?.();
+  cleanupEsc?.();
+};
+```
+
+---
+
+## Scroll Management
+
+### lockScroll
+
+Prevent page scrolling while accounting for scrollbar width.
+
+```typescript
+import { lockScroll } from '@zayne-labs/toolkit-core';
+
+// Lock scroll
+lockScroll({ lock: true });
+
+// Unlock scroll
+lockScroll({ lock: false });
+
+// Lock specific element
+lockScroll({
+  lock: true,
+  targetElement: () => document.querySelector('.scrollable-container')
+});
+```
+
+**Type Signature:**
+```typescript
+type LockScrollOptions = {
+  lock: boolean;
+  targetElement?: () => HTMLElement;
+};
+
+const lockScroll: (
+  options: LockScrollOptions
+) => void
+```
+
+<Note>
+  `lockScroll` automatically calculates and compensates for scrollbar width to prevent layout shift. It also exposes the scrollbar width as a CSS variable `--scrollbar-width`.
+</Note>
+
+### Example: Modal with Scroll Lock
+
+```typescript
+import { lockScroll } from '@zayne-labs/toolkit-core';
+
+class Modal {
+  open() {
+    this.element.classList.add('visible');
+    lockScroll({ lock: true });
+  }
+  
+  close() {
+    this.element.classList.remove('visible');
+    lockScroll({ lock: false });
+  }
+}
+
+// CSS to use the scrollbar width variable
+/*
+.modal {
+  padding-right: var(--scrollbar-width, 0);
+}
+*/
+```
+
+---
+
+### createScrollObserver
+
+Observe when elements enter/exit the viewport using Intersection Observer.
+
+```typescript
+import { createScrollObserver } from '@zayne-labs/toolkit-core';
+
+const { handleElementObservation } = createScrollObserver({
+  rootMargin: '100px 0px 0px 0px',
+  threshold: 0.5,
+  onIntersectionChange: (entry, observer) => {
+    if (entry.isIntersecting) {
+      console.log('Element is visible!');
+      // Load content, trigger animation, etc.
+    }
+  }
+});
+
+// Observe an element
+const element = document.querySelector('.lazy-load');
+const cleanup = handleElementObservation(element);
+
+// Stop observing
+cleanup?.();
+```
+
+**Type Signature:**
+```typescript
+type ScrollObserverOptions = IntersectionObserverInit & {
+  onIntersectionChange?: (
+    entry: IntersectionObserverEntry,
+    observer: IntersectionObserver
+  ) => void;
+};
+
+const createScrollObserver: <TElement extends HTMLElement>(
+  options?: ScrollObserverOptions
+) => {
+  elementObserver: IntersectionObserver | null;
+  handleElementObservation: (element: TElement | null) => (() => void) | undefined;
+}
+```
+
+### Advanced Examples
+
+```typescript
+import { createScrollObserver } from '@zayne-labs/toolkit-core';
+
+// Infinite scroll
+const { handleElementObservation } = createScrollObserver({
+  rootMargin: '200px',
+  onIntersectionChange: async (entry) => {
+    if (entry.isIntersecting) {
+      await loadMoreItems();
+    }
+  }
+});
+
+const sentinel = document.querySelector('.infinite-scroll-sentinel');
+handleElementObservation(sentinel);
+
+// Lazy load images
+const imageObserver = createScrollObserver({
+  rootMargin: '50px',
+  onIntersectionChange: (entry) => {
+    if (entry.isIntersecting) {
+      const img = entry.target as HTMLImageElement;
+      const src = img.dataset.src;
+      
+      if (src) {
+        img.src = src;
+        img.removeAttribute('data-src');
+      }
+    }
+  }
+});
+
+document.querySelectorAll('img[data-src]').forEach((img) => {
+  imageObserver.handleElementObservation(img as HTMLImageElement);
+});
+
+// Animate on scroll
+const animationObserver = createScrollObserver({
+  threshold: 0.2,
+  onIntersectionChange: (entry) => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('animate-in');
+    }
+  }
+});
+
+document.querySelectorAll('.animate-on-scroll').forEach((el) => {
+  animationObserver.handleElementObservation(el as HTMLElement);
+});
+```
+
+---
+
+## File Utilities
+
+### createFileURL
+
+Create object URLs or base64 URLs from files synchronously.
+
+```typescript
+import { createFileURL } from '@zayne-labs/toolkit-core';
+
+// Create object URL (default, synchronous)
+const file = input.files[0];
+const objectUrl = createFileURL(file);
+img.src = objectUrl; // blob:http://...
+
+// Create base64 URL (async callback)
+const base64Url = createFileURL(file, {
+  previewType: 'base64URL',
+  onSuccess: ({ result }) => {
+    img.src = result; // data:image/png;base64,...
+  },
+  onError: ({ error }) => {
+    console.error('Failed to create URL:', error);
+  }
+});
+
+// With custom MIME type
+const url = createFileURL(blob, {
+  previewType: 'objectURL',
+  onSuccess: ({ result }) => console.log('Created:', result)
+});
+```
+
+---
+
+### createFileURLAsync
+
+Create file URLs asynchronously (awaitable).
+
+```typescript
+import { createFileURLAsync } from '@zayne-labs/toolkit-core';
+
+// Async object URL
+const file = input.files[0];
+const objectUrl = await createFileURLAsync(file);
+img.src = objectUrl;
+
+// Async base64 URL
+const base64Url = await createFileURLAsync(file, {
+  previewType: 'base64URL',
+  onSuccess: ({ result }) => console.log('Base64 ready')
+});
+img.src = base64Url;
+
+// Error handling
+try {
+  const url = await createFileURLAsync(file, {
+    previewType: 'base64URL'
+  });
+  img.src = url;
+} catch (error) {
+  console.error('Failed:', error);
+}
+```
+
+**Type Signatures:**
+```typescript
+const createFileURL: <
+  TFile extends Blob | File | FileMeta,
+  TPreviewType extends 'objectURL' | 'base64URL'
+>(
+  file: TFile,
+  options?: PreviewOptions<TPreviewType>
+) => string | undefined | null
+
+const createFileURLAsync: <
+  TFile extends Blob | File | FileMeta,
+  TPreviewType extends 'objectURL' | 'base64URL'
+>(
+  file: TFile,
+  options?: PreviewOptions<TPreviewType, 'async'>
+) => Promise<string | undefined>
+```
+
+### Complete Example
+
+```typescript
+import { createFileURL, createFileURLAsync } from '@zayne-labs/toolkit-core';
+
+// Image preview component
+class ImagePreview {
+  private input: HTMLInputElement;
+  private preview: HTMLImageElement;
+  private objectUrl: string | null = null;
+  
+  constructor(input: HTMLInputElement, preview: HTMLImageElement) {
+    this.input = input;
+    this.preview = preview;
+    
+    input.addEventListener('change', () => this.handleChange());
+  }
+  
+  async handleChange() {
+    const file = this.input.files?.[0];
+    if (!file) return;
+    
+    // Revoke previous URL to prevent memory leak
+    if (this.objectUrl) {
+      URL.revokeObjectURL(this.objectUrl);
+    }
+    
+    // Create new preview
+    this.objectUrl = await createFileURLAsync(file, {
+      previewType: 'objectURL',
+      onError: ({ error }) => {
+        console.error('Preview failed:', error);
+        this.preview.src = '/placeholder.png';
+      }
+    });
+    
+    if (this.objectUrl) {
+      this.preview.src = this.objectUrl;
+    }
+  }
+  
+  destroy() {
+    if (this.objectUrl) {
+      URL.revokeObjectURL(this.objectUrl);
+    }
+  }
+}
+```
+
+<Note>
+  Remember to revoke object URLs with `URL.revokeObjectURL()` when done to prevent memory leaks. Base64 URLs don't need to be revoked but create larger strings.
+</Note>
+
+---
+
+## Device Detection
+
+### checkIsDeviceMobile
+
+Reliably detect if the user is on a mobile device.
+
+```typescript
+import { checkIsDeviceMobile } from '@zayne-labs/toolkit-core';
+
+if (checkIsDeviceMobile()) {
+  console.log('Mobile device detected');
+  // Load mobile-optimized experience
+} else {
+  console.log('Desktop device detected');
+  // Load desktop experience
+}
+```
+
+**Type Signature:**
+```typescript
+const checkIsDeviceMobile: () => boolean
+```
+
+### Detection Strategy
+
+The function uses multiple detection methods in order of reliability:
+
+1. **Pointer type** - Checks if device has a fine pointer (mouse) or coarse pointer (touch)
+2. **Touch support** - Checks for touch events and `maxTouchPoints`
+3. **User Agent Data** - Uses modern `navigator.userAgentData` API
+4. **User Agent string** - Fallback regex pattern matching
+
+```typescript
+// The function checks in this order:
+// 1. matchMedia("(pointer:fine)")      -> false (has mouse)
+// 2. matchMedia("(pointer:coarse)")    -> true (touch only)
+// 3. 'ontouchstart' in window          -> touch support
+// 4. navigator.userAgentData.mobile    -> modern API
+// 5. User agent regex                  -> fallback
+```
+
+### Practical Usage
+
+```typescript
+import { checkIsDeviceMobile } from '@zayne-labs/toolkit-core';
+
+// Conditional loading
+const isMobile = checkIsDeviceMobile();
+
+if (isMobile) {
+  import('./mobile-components').then(module => {
+    module.initMobileUI();
+  });
+} else {
+  import('./desktop-components').then(module => {
+    module.initDesktopUI();
+  });
+}
+
+// Apply mobile-specific styles
+if (checkIsDeviceMobile()) {
+  document.body.classList.add('mobile');
+}
+
+// Analytics
+analytics.track('page_view', {
+  device_type: checkIsDeviceMobile() ? 'mobile' : 'desktop'
+});
+```
+
+<Warning>
+  Device detection is not always 100% accurate (e.g., tablets, hybrid devices). Consider using responsive design and progressive enhancement as the primary approach, with device detection as a supplementary optimization.
+</Warning>
+
+---
+
+## Best Practices
+
+<Tabs>
+  <Tab title="Memory Management">
+    - Always cleanup event listeners when components unmount
+    - Revoke object URLs created with `createFileURL` to prevent memory leaks
+    - Use `once: true` option for one-time event listeners
+    - Cleanup intersection observers when elements are removed
+    
+    ```typescript
+    const cleanup = on('click', button, handler);
+    
+    // On component unmount
+    cleanup();
+    ```
+  </Tab>
+  
+  <Tab title="Performance">
+    - Use `passive: true` for scroll and touch events
+    - Prefer `createScrollObserver` over manual scroll listeners
+    - Use `throttleByFrame` with scroll events for animations
+    - Lazy load images with Intersection Observer
+    
+    ```typescript
+    on('scroll', window, handler, { passive: true });
+    ```
+  </Tab>
+  
+  <Tab title="Accessibility">
+    - Don't rely solely on click outside for closing modals
+    - Support keyboard navigation (ESC key for modals)
+    - Lock scroll on modal open, unlock on close
+    - Provide visual feedback for clipboard operations
+  </Tab>
+  
+  <Tab title="SSR Compatibility">
+    - All DOM utilities include runtime checks for browser environment
+    - Safe to import in SSR contexts (will no-op on server)
+    - Check `typeof window !== 'undefined'` for custom logic
+    
+    ```typescript
+    // Safe in SSR
+    import { lockScroll } from '@zayne-labs/toolkit-core';
+    
+    // No-ops on server
+    lockScroll({ lock: true });
+    ```
+  </Tab>
+</Tabs>

@@ -1,0 +1,194 @@
+---
+title: Migration Guide
+description: Learn how to migrate between versions of Zayne Labs Toolkit
+icon: "arrow-right-arrow-left"
+---
+
+## Overview
+
+Zayne Labs Toolkit uses [Changesets](https://github.com/changesets/changesets) for versioning and changelog management. This guide will help you migrate between versions and understand breaking changes.
+
+## Current Version
+
+The latest stable version of the toolkit packages is:
+
+- `@zayne-labs/toolkit-core`: v0.12.43
+- `@zayne-labs/toolkit-react`: v0.12.43
+- `@zayne-labs/toolkit-type-helpers`: v0.12.43
+
+## Package Structure Changes
+
+<Note>
+  The toolkit is now split into three separate packages for better modularity and tree-shaking.
+</Note>
+
+### From Legacy to v0.12.x
+
+If you're migrating from an older version where everything was in a single package, you'll need to update your imports:
+
+<Steps>
+  <Step title="Update package dependencies">
+    Install the specific packages you need:
+
+    ```bash
+    # For core utilities
+    pnpm add @zayne-labs/toolkit-core
+
+    # For React hooks and utilities
+    pnpm add @zayne-labs/toolkit-react
+
+    # For TypeScript type helpers
+    pnpm add @zayne-labs/toolkit-type-helpers
+    ```
+  </Step>
+
+  <Step title="Update your imports">
+    **Before:**
+    ```typescript
+    import { copyToClipboard, useToggle, Prettify } from "@zayne-labs/toolkit";
+    ```
+
+    **After:**
+    ```typescript
+    import { copyToClipboard } from "@zayne-labs/toolkit-core";
+    import { useToggle } from "@zayne-labs/toolkit-react";
+    import type { Prettify } from "@zayne-labs/toolkit-type-helpers";
+    ```
+  </Step>
+
+  <Step title="Update type imports">
+    All type imports should use the `type` keyword for better tree-shaking:
+
+    ```typescript
+    import type { Prettify, ValueOf } from "@zayne-labs/toolkit-type-helpers";
+    ```
+  </Step>
+</Steps>
+
+## React Package Updates
+
+### Subpath Exports
+
+The React package now uses subpath exports for better code splitting:
+
+```typescript
+// Main hooks (default export)
+import { useToggle, useDebounce } from "@zayne-labs/toolkit-react";
+
+// React utilities
+import { composeRefs, mergeProps } from "@zayne-labs/toolkit-react/utils";
+
+// Zustand helpers
+import { createReactStore } from "@zayne-labs/toolkit-react/zustand";
+
+// Zustand compatible version
+import { createReactStore } from "@zayne-labs/toolkit-react/zustand-compat";
+```
+
+### Peer Dependencies
+
+<Warning>
+  The React package now requires React 19.x as a peer dependency. Make sure your project is using a compatible version.
+</Warning>
+
+```json
+{
+  "peerDependencies": {
+    "react": ">=19.0.0",
+    "@types/react": ">=19.0.0"
+  }
+}
+```
+
+## Breaking Changes Checklist
+
+<AccordionGroup>
+  <Accordion title="Package Splitting">
+    - Single package split into three separate packages
+    - Update imports to use package-specific paths
+    - Install only the packages you need
+  </Accordion>
+
+  <Accordion title="Module Type">
+    - All packages now use `"type": "module"`
+    - Only ESM builds are provided
+    - Ensure your project supports ESM modules
+  </Accordion>
+
+  <Accordion title="Side Effects">
+    - All packages are marked as `"sideEffects": false`
+    - Enables better tree-shaking
+    - No changes required from users
+  </Accordion>
+
+  <Accordion title="Node Version">
+    - Minimum Node.js version is now 18.x
+    - Update your environment if using an older version
+  </Accordion>
+</AccordionGroup>
+
+## Version Management
+
+The toolkit uses Changesets for version management. To stay updated:
+
+<Steps>
+  <Step title="Check for updates">
+    ```bash
+    pnpm outdated @zayne-labs/toolkit-*
+    ```
+  </Step>
+
+  <Step title="Update packages">
+    ```bash
+    pnpm update @zayne-labs/toolkit-core @zayne-labs/toolkit-react @zayne-labs/toolkit-type-helpers
+    ```
+  </Step>
+
+  <Step title="Test your application">
+    Run your tests to ensure everything works correctly:
+
+    ```bash
+    pnpm test
+    pnpm lint:type-check
+    ```
+  </Step>
+</Steps>
+
+## TypeScript Configuration
+
+<Note>
+  The toolkit requires TypeScript 5.9.x for optimal type inference.
+</Note>
+
+Ensure your `tsconfig.json` is configured correctly:
+
+```json
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  }
+}
+```
+
+## Getting Help
+
+If you encounter any issues during migration:
+
+- Check the [GitHub Issues](https://github.com/zayne-labs/toolkit/issues)
+- Review the package-specific documentation
+- Open a new issue with details about your migration problem
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tree-Shaking Guide" icon="tree" href="/guides/tree-shaking">
+    Learn how to optimize your bundle size
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/core/debounce">
+    Explore all available functions and hooks
+  </Card>
+</CardGroup>

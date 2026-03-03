@@ -1,0 +1,196 @@
+---
+title: "Prettify"
+description: "Type utilities for improving TypeScript type display and readability"
+---
+
+## Prettify
+
+Makes TypeScript hover tooltips show the expanded form of a type instead of just the type alias name.
+
+```typescript
+type Prettify<TObject> = NonNullable<unknown> & {
+  [Key in keyof TObject]: TObject[Key]
+}
+```
+
+<ParamField path="TObject" type="object">
+  The object type to prettify
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+type User = { name: string };
+type WithId = { id: number };
+
+// Without Prettify - hover shows: User & WithId
+type UserWithId = User & WithId;
+
+// With Prettify - hover shows: { name: string; id: number }
+type PrettyUserWithId = Prettify<User & WithId>;
+```
+
+## DeepPrettify
+
+Recursively prettifies nested object types, including function return types.
+
+```typescript language="typescript"
+type DeepPrettify<TObject> =
+  TObject extends (...args: infer TParams) => infer TReturn
+    ? (...args: TParams) => TReturn
+    : TObject extends object
+      ? NonNullable<unknown> & {
+          [Key in keyof TObject]: DeepPrettify<TObject[Key]>
+        }
+      : TObject;
+```
+
+<ParamField path="TObject" type="any">
+  The type to deeply prettify (can be object, function, or primitive)
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+type Nested = {
+  user: User & WithId;
+  settings: { theme: string } & { mode: string };
+};
+
+// Deeply expands all nested intersections
+type PrettyNested = DeepPrettify<Nested>;
+// Result: {
+//   user: { name: string; id: number };
+//   settings: { theme: string; mode: string };
+// }
+```
+
+## UnmaskType
+
+Forces TypeScript to display the computed type instead of the generic type name.
+
+```typescript language="typescript"
+type UnmaskType<TType> = { _: TType }["_"];
+```
+
+<ParamField path="TType" type="any">
+  The type to unmask
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+type StringRecord = Record<string, unknown>;
+type UnmaskedStringRecord = UnmaskType<StringRecord>;
+// Hover shows: { [x: string]: unknown } instead of Record<string, unknown>
+```
+
+## PrettyOmit
+
+Combines `Omit` with `Prettify` for cleaner type display.
+
+```typescript language="typescript"
+type PrettyOmit<TObject, Key extends keyof TObject> = Prettify<Omit<TObject, Key>>;
+```
+
+<ParamField path="TObject" type="object">
+  The object type to omit from
+</ParamField>
+
+<ParamField path="Key" type="keyof TObject">
+  The keys to omit
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+type User = { id: number; name: string; email: string };
+
+// Shows expanded type without 'id'
+type UserWithoutId = PrettyOmit<User, "id">;
+// Result: { name: string; email: string }
+```
+
+## PrettyPick
+
+Combines `Pick` with `Prettify` for cleaner type display.
+
+```typescript language="typescript"
+type PrettyPick<TObject, Key extends keyof TObject> = Prettify<Pick<TObject, Key>>;
+```
+
+<ParamField path="TObject" type="object">
+  The object type to pick from
+</ParamField>
+
+<ParamField path="Key" type="keyof TObject">
+  The keys to pick
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+type User = { id: number; name: string; email: string };
+
+// Shows only picked properties in expanded form
+type UserCredentials = PrettyPick<User, "email">;
+// Result: { email: string }
+```
+
+## DistributiveOmit
+
+Omits keys from each member of a union type distributively.
+
+```typescript language="typescript"
+type DistributiveOmit<TObject, TKeysToOmit extends keyof TObject> =
+  TObject extends unknown ? Omit<TObject, TKeysToOmit> : never;
+```
+
+<ParamField path="TObject" type="union">
+  The union type to omit from
+</ParamField>
+
+<ParamField path="TKeysToOmit" type="keyof TObject">
+  The keys to omit from each union member
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+type Cat = { type: "cat"; meow: () => void };
+type Dog = { type: "dog"; bark: () => void };
+type Animal = Cat | Dog;
+
+// Omits 'type' from both Cat and Dog
+type AnimalWithoutType = DistributiveOmit<Animal, "type">;
+// Result: { meow: () => void } | { bark: () => void }
+```
+
+## DistributivePick
+
+Picks keys from each member of a union type distributively.
+
+```typescript language="typescript"
+type DistributivePick<TObject, TKeysToPick extends keyof TObject> =
+  TObject extends unknown ? Pick<TObject, TKeysToPick> : never;
+```
+
+<ParamField path="TObject" type="union">
+  The union type to pick from
+</ParamField>
+
+<ParamField path="TKeysToPick" type="keyof TObject">
+  The keys to pick from each union member
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+type Cat = { type: "cat"; meow: () => void; name: string };
+type Dog = { type: "dog"; bark: () => void; name: string };
+type Animal = Cat | Dog;
+
+// Picks only 'name' from both types
+type AnimalName = DistributivePick<Animal, "name">;
+// Result: { name: string } | { name: string }
+```

@@ -1,0 +1,117 @@
+---
+title: Introduction
+description: A powerful collection of utility functions, types, and composables designed to accelerate development across JavaScript/TypeScript projects
+---
+
+# Welcome to Zayne Labs Toolkit
+
+Zayne Labs Toolkit is a powerful collection of utility functions, types, and composables designed to accelerate development across various JavaScript/TypeScript projects. Built with modularity and type-safety in mind, it provides everything you need to build modern web applications efficiently.
+
+## Why Zayne Labs Toolkit?
+
+<CardGroup cols={2}>
+  <Card title="Fully Type-Safe" icon="shield-check">
+    Built with TypeScript from the ground up with advanced type utilities and zero runtime overhead for type helpers.
+  </Card>
+  
+  <Card title="Modular Design" icon="cubes">
+    Import only what you need. Tree-shakeable exports ensure your bundle stays lean.
+  </Card>
+  
+  <Card title="Framework Agnostic Core" icon="layer-group">
+    Core utilities work everywhere. React-specific hooks available with dedicated package.
+  </Card>
+  
+  <Card title="Battle-Tested" icon="vial">
+    Thoroughly tested utilities used in production applications.
+  </Card>
+</CardGroup>
+
+## Three Powerful Packages
+
+<CardGroup cols={3}>
+  <Card title="Core Utilities" icon="wrench" href="/core/overview">
+    Essential utilities like `copyToClipboard`, `debounce`, `throttle`, and state management helpers.
+  </Card>
+  
+  <Card title="React Hooks" icon="react" href="/react/overview">
+    React-specific hooks including `useToggle`, `useDisclosure`, `useClickOutside`, and Zustand integrations.
+  </Card>
+  
+  <Card title="Type Helpers" icon="code" href="/type-helpers/overview">
+    Advanced TypeScript utilities like `Prettify`, `DeepPrettify`, type guards, and assertion helpers.
+  </Card>
+</CardGroup>
+
+## Key Features
+
+- **Zero Runtime Overhead**: Type utilities have no runtime cost
+- **Tree-Shakeable**: Only bundle what you use
+- **Full TypeScript Support**: Comprehensive type definitions and utilities
+- **React Integration**: Hooks for common patterns and Zustand store helpers
+- **Modern Build**: ESM-first with optimal bundling
+- **Thoroughly Tested**: Comprehensive test coverage with Vitest
+
+## Quick Example
+
+Get started in seconds with minimal setup:
+
+```typescript
+import { copyToClipboard, debounce } from "@zayne-labs/toolkit-core";
+import { useToggle, useDisclosure } from "@zayne-labs/toolkit-react";
+import type { Prettify } from "@zayne-labs/toolkit-type-helpers";
+
+// Use powerful utilities immediately
+const handleCopy = async () => {
+  await copyToClipboard("Hello, world!", {
+    onSuccess: () => console.log("Copied!"),
+  });
+};
+
+function MyComponent() {
+  const [isOpen, toggleOpen] = useToggle();
+  const modal = useDisclosure({ hasScrollControl: true });
+  
+  return (
+    <button onClick={() => toggleOpen()}>
+      {isOpen ? "Close" : "Open"}
+    </button>
+  );
+}
+```
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install the toolkit and get your environment set up.
+  </Card>
+  
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Build your first app with step-by-step guidance.
+  </Card>
+  
+  <Card title="Core Utilities" icon="wrench" href="/core/overview">
+    Explore the full range of core utilities available.
+  </Card>
+  
+  <Card title="React Hooks" icon="react" href="/react/overview">
+    Discover powerful React hooks and utilities.
+  </Card>
+</CardGroup>
+
+<Note>
+  Zayne Labs Toolkit requires **Node.js 18.x or higher**. Make sure your environment meets this requirement.
+</Note>
+
+## Community and Support
+
+Join our growing community and get help when you need it:
+
+- **GitHub**: [zayne-labs/toolkit](https://github.com/zayne-labs/toolkit)
+- **Issues**: [Report bugs or request features](https://github.com/zayne-labs/toolkit/issues)
+- **License**: MIT © Ryan Zayne
+
+<Tip>
+  Support for Vue, Svelte, and Solid is coming soon! Stay tuned for updates.
+</Tip>

@@ -1,0 +1,713 @@
+---
+title: React Hooks
+description: Comprehensive guide to all React hooks in the toolkit
+---
+
+## State Management Hooks
+
+### useToggle
+
+A simple hook for managing boolean state with toggle functionality.
+
+```tsx
+import { useToggle } from '@zayne-labs/toolkit-react';
+
+function Component() {
+  const [isOpen, toggleIsOpen] = useToggle(false);
+  
+  return (
+    <div>
+      <button onClick={() => toggleIsOpen()}>
+        Toggle (current: {isOpen ? 'open' : 'closed'})
+      </button>
+      <button onClick={() => toggleIsOpen(true)}>Open</button>
+      <button onClick={() => toggleIsOpen(false)}>Close</button>
+    </div>
+  );
+}
+```
+
+**Type Signature:**
+```tsx
+type InitialState = boolean | (() => boolean);
+
+function useToggle(initialValue?: InitialState): [
+  value: boolean,
+  toggleValue: <TValue>(newValue?: TValue) => void
+];
+```
+
+### useDisclosure
+
+Manages open/close state for modals, drawers, and other disclosure widgets with optional scroll locking.
+
+```tsx
+import { useDisclosure } from '@zayne-labs/toolkit-react';
+
+function Modal() {
+  const { isOpen, onOpen, onClose, onToggle } = useDisclosure({
+    initialState: false,
+    hasScrollControl: true // Locks scroll when open
+  });
+  
+  return (
+    <>
+      <button onClick={onOpen}>Open Modal</button>
+      {isOpen && (
+        <div className="modal">
+          <button onClick={onClose}>Close</button>
+          <button onClick={() => onToggle()}>Toggle</button>
+        </div>
+      )}
+    </>
+  );
+}
+```
+
+**Type Signature:**
+```tsx
+type DisclosureOptions = {
+  hasScrollControl?: boolean;
+  initialState?: boolean | (() => boolean);
+};
+
+function useDisclosure(options?: DisclosureOptions): {
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onToggle: (value?: boolean) => void;
+};
+```
+
+### useControllableState
+
+Creates state that can be either controlled or uncontrolled, following the React controlled component pattern.
+
+```tsx
+import { useControllableState } from '@zayne-labs/toolkit-react';
+
+function Input({ value: controlledValue, onChange, defaultValue }) {
+  const [value, setValue] = useControllableState({
+    prop: controlledValue,
+    defaultProp: defaultValue,
+    onChange: onChange
+  });
+  
+  return (
+    <input
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+    />
+  );
+}
+
+// Uncontrolled usage
+<Input defaultValue="hello" />
+
+// Controlled usage
+<Input value={externalValue} onChange={setExternalValue} />
+```
+
+**Type Signature:**
+```tsx
+type UseControllableStateOptions<TProp> = {
+  defaultProp?: TProp | (() => TProp);
+  isControlled?: boolean;
+  onChange?: (prop: TProp) => void;
+  prop?: TProp;
+};
+
+function useControllableState<TProp>(
+  options: UseControllableStateOptions<TProp>
+): [state: TProp, setState: StateSetter<TProp>];
+```
+
+### useStorageState
+
+Syncs state with localStorage or sessionStorage with automatic serialization and cross-tab synchronization.
+
+```tsx
+import { useStorageState } from '@zayne-labs/toolkit-react';
+
+function ThemeToggle() {
+  const [theme, { setState: setTheme }] = useStorageState(
+    'theme',
+    'light',
+    {
+      storageArea: localStorage,
+      syncStateAcrossTabs: true
+    }
+  );
+  
+  return (
+    <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+      Current theme: {theme}
+    </button>
+  );
+}
+```
+
+<Tabs>
+  <Tab title="Basic Usage">
+    ```tsx
+    const [user, userActions] = useStorageState('user', { name: 'John' });
+    
+    // Update state
+    userActions.setState({ name: 'Jane' });
+    
+    // Remove from storage
+    userActions.removeState();
+    ```
+  </Tab>
+  
+  <Tab title="With Selector">
+    ```tsx
+    const [userName, userActions] = useStorageState(
+      'user',
+      { name: 'John', age: 30 },
+      {
+        select: (state) => state.name
+      }
+    );
+    
+    // userName is just the name string
+    console.log(userName); // 'John'
+    ```
+  </Tab>
+  
+  <Tab title="Shared Hook">
+    ```tsx
+    // Create a shared storage hook
+    const useUserStorage = createUseStorageState({
+      key: 'user',
+      defaultValue: { name: '', email: '' },
+      storageArea: localStorage
+    });
+    
+    // Use in multiple components
+    function ComponentA() {
+      const [user] = useUserStorage();
+      return <div>{user.name}</div>;
+    }
+    
+    function ComponentB() {
+      const [user, actions] = useUserStorage();
+      return <button onClick={() => actions.setState({ ...user, name: 'New' })} />;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+**Type Signature:**
+```tsx
+function useStorageState<TValue, TSlice = TValue>(
+  key: string,
+  defaultValue?: TValue,
+  options?: {
+    equalityFn?: (a: TValue, b: TValue) => boolean;
+    logger?: (error: Error) => void;
+    parser?: (value: string) => TValue;
+    partialize?: (value: TValue) => Partial<TValue>;
+    select?: SelectorFn<TValue, TSlice>;
+    serializer?: (value: TValue) => string;
+    storageArea?: Storage;
+    syncStateAcrossTabs?: boolean;
+  }
+): [state: TSlice, actions: StorageStoreApi<TValue>];
+```
+
+## Performance Hooks
+
+### useDebouncedFn / useDebouncedState
+
+Debounce function calls or state updates.
+
+<Tabs>
+  <Tab title="Debounced Function">
+    ```tsx
+    import { useDebouncedFn } from '@zayne-labs/toolkit-react';
+    
+    function SearchInput() {
+      const [query, setQuery] = useState('');
+      
+      const debouncedSearch = useDebouncedFn(
+        (searchTerm: string) => {
+          console.log('Searching for:', searchTerm);
+        },
+        500
+      );
+      
+      return (
+        <input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            debouncedSearch(e.target.value);
+          }}
+        />
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Debounced State">
+    ```tsx
+    import { useDebouncedState } from '@zayne-labs/toolkit-react';
+    
+    function SearchComponent() {
+      const [debouncedValue, setDebouncedValue, setImmediateValue] = useDebouncedState('', 500);
+      
+      useEffect(() => {
+        // This runs 500ms after the last update
+        if (debouncedValue) {
+          fetchSearchResults(debouncedValue);
+        }
+      }, [debouncedValue]);
+      
+      return (
+        <input
+          onChange={(e) => setDebouncedValue(e.target.value)}
+          placeholder="Search..."
+        />
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+**Type Signatures:**
+```tsx
+function useDebouncedFn<TParams>(
+  callBackFn: CallbackFn<TParams>,
+  delay: number | undefined
+): DebouncedFunction;
+
+function useDebouncedState<TValue>(
+  defaultValue: TValue,
+  delay: number | undefined
+): readonly [value: TValue, setDebouncedValue: Function, setValue: Function];
+```
+
+### useThrottle Variants
+
+Throttle function calls using different strategies.
+
+<Tabs>
+  <Tab title="Throttle by Timeout">
+    ```tsx
+    import { useThrottleByTimeout } from '@zayne-labs/toolkit-react';
+    
+    function ScrollComponent() {
+      const handleScroll = useThrottleByTimeout(
+        (event: Event) => {
+          console.log('Scroll position:', window.scrollY);
+        },
+        200
+      );
+      
+      useEffect(() => {
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+      }, [handleScroll]);
+      
+      return <div>Scroll the page</div>;
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Throttle by Frame">
+    ```tsx
+    import { useThrottleByFrame } from '@zayne-labs/toolkit-react';
+    
+    function AnimatedComponent() {
+      const handleMouseMove = useThrottleByFrame(
+        (event: MouseEvent) => {
+          // Called at most once per animation frame
+          updatePosition(event.clientX, event.clientY);
+        }
+      );
+      
+      return <div onMouseMove={handleMouseMove}>Move mouse here</div>;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+**Type Signatures:**
+```tsx
+function useThrottleByTimeout<TParams>(
+  callbackFn: CallbackFn<TParams>,
+  delay: number
+): ThrottledFunction;
+
+function useThrottleByTimer<TParams>(
+  callbackFn: CallbackFn<TParams>,
+  delay: number
+): ThrottledFunction;
+
+function useThrottleByFrame<TParams>(
+  callbackFn: CallbackFn<TParams>
+): ThrottledFunction;
+```
+
+### useCallbackRef
+
+Returns a stable function reference that always points to the latest callback version.
+
+```tsx
+import { useCallbackRef } from '@zayne-labs/toolkit-react';
+
+function Component({ onSubmit }) {
+  const stableOnSubmit = useCallbackRef(onSubmit);
+  
+  useEffect(() => {
+    // stableOnSubmit reference never changes
+    // but always calls the latest onSubmit
+    const timer = setTimeout(() => stableOnSubmit(), 1000);
+    return () => clearTimeout(timer);
+  }, [stableOnSubmit]); // Safe to use in dependency array
+  
+  return <form onSubmit={stableOnSubmit}>...</form>;
+}
+```
+
+**Type Signature:**
+```tsx
+function useCallbackRef<TCallback extends AnyFunction | null | undefined | void>(
+  callbackFn: TCallback
+): TCallback;
+```
+
+## Effect Hooks
+
+### useMountEffect
+
+Runs an effect only when the component mounts.
+
+```tsx
+import { useMountEffect } from '@zayne-labs/toolkit-react';
+
+function Component() {
+  useMountEffect(() => {
+    console.log('Component mounted');
+    fetchInitialData();
+  });
+  
+  return <div>Content</div>;
+}
+```
+
+### useUnmountEffect
+
+Runs cleanup code when component unmounts.
+
+```tsx
+import { useUnmountEffect } from '@zayne-labs/toolkit-react';
+
+function Component() {
+  useUnmountEffect(() => {
+    console.log('Component unmounting');
+    cleanup();
+  });
+  
+  return <div>Content</div>;
+}
+```
+
+### useEffectOnce
+
+Runs an effect exactly once, even in React Strict Mode.
+
+```tsx
+import { useEffectOnce } from '@zayne-labs/toolkit-react';
+
+function Component() {
+  useEffectOnce(() => {
+    console.log('This runs exactly once');
+    initializeAnalytics();
+    
+    return () => {
+      console.log('Cleanup runs exactly once');
+    };
+  });
+  
+  return <div>Content</div>;
+}
+```
+
+<Note>
+  useEffectOnce is safe to use in React Strict Mode and will only execute once despite double-rendering.
+</Note>
+
+## Browser API Hooks
+
+### useClickOutside
+
+Detects clicks outside of specified elements.
+
+```tsx
+import { useClickOutside } from '@zayne-labs/toolkit-react';
+
+function Dropdown() {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  
+  useClickOutside({
+    ref: dropdownRef,
+    onClick: () => setIsOpen(false),
+    enabled: isOpen
+  });
+  
+  return (
+    <div ref={dropdownRef}>
+      <button onClick={() => setIsOpen(true)}>Open</button>
+      {isOpen && <div className="dropdown-content">Content</div>}
+    </div>
+  );
+}
+```
+
+<Tabs>
+  <Tab title="Single Ref">
+    ```tsx
+    const ref = useRef(null);
+    
+    useClickOutside({
+      ref: ref,
+      onClick: () => console.log('Clicked outside')
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Multiple Refs">
+    ```tsx
+    const ref1 = useRef(null);
+    const ref2 = useRef(null);
+    
+    useClickOutside({
+      ref: [ref1, ref2],
+      onClick: () => console.log('Clicked outside both elements')
+    });
+    ```
+  </Tab>
+  
+  <Tab title="With Internal Ref">
+    ```tsx
+    const { ref } = useClickOutside({
+      onClick: () => console.log('Clicked outside')
+    });
+    
+    return <div ref={ref}>Content</div>;
+    ```
+  </Tab>
+</Tabs>
+
+**Type Signature:**
+```tsx
+type UseClickOutsideOptions<TElement extends HTMLElement> = {
+  enabled?: boolean;
+  onClick: (event: MouseEvent | TouchEvent) => void;
+  ref?: Array<React.RefObject<TElement>> | React.RefObject<TElement>;
+};
+
+function useClickOutside<TElement extends HTMLElement>(
+  options: UseClickOutsideOptions<TElement>
+): { ref: React.RefObject<TElement> };
+```
+
+### useCopyToClipboard
+
+Copies content to the clipboard with automatic timeout.
+
+```tsx
+import { useCopyToClipboard } from '@zayne-labs/toolkit-react';
+
+function CopyButton() {
+  const { handleCopy, hasCopied, value } = useCopyToClipboard({
+    timeout: 2000,
+    onSuccess: () => console.log('Copied!'),
+    onError: (err) => console.error('Failed:', err)
+  });
+  
+  return (
+    <button onClick={() => handleCopy('Text to copy')}>
+      {hasCopied ? 'Copied!' : 'Copy'}
+    </button>
+  );
+}
+```
+
+**Type Signature:**
+```tsx
+type AllowedClipboardItems = string | Blob;
+
+function useCopyToClipboard(options?: {
+  mimeType?: string;
+  onCopied?: () => void;
+  onError?: (error: Error) => void;
+  onSuccess?: () => void;
+  timeout?: number;
+}): {
+  handleCopy: (valueToCopy: AllowedClipboardItems) => void;
+  hasCopied: boolean;
+  setValue: (value: AllowedClipboardItems) => void;
+  value: AllowedClipboardItems;
+};
+```
+
+### useIsHydrated
+
+Detects if React has hydrated on the client side.
+
+```tsx
+import { useIsHydrated } from '@zayne-labs/toolkit-react';
+
+function Component() {
+  const isHydrated = useIsHydrated();
+  
+  return (
+    <button disabled={!isHydrated} onClick={handleClientSideAction}>
+      {isHydrated ? 'Click me' : 'Loading...'}
+    </button>
+  );
+}
+```
+
+<Note>
+  This hook is useful for SSR applications to prevent hydration mismatches and enable client-only features.
+</Note>
+
+**Type Signature:**
+```tsx
+function useIsHydrated(): boolean;
+```
+
+### useSearchParams
+
+Manages URL search parameters with React state.
+
+```tsx
+import { useSearchParams } from '@zayne-labs/toolkit-react';
+
+function SearchPage() {
+  const [searchParams, setSearchParams, triggerPopstate] = useSearchParams({
+    defaultValues: { q: '', filter: 'all' },
+    action: 'push' // or 'replace'
+  });
+  
+  const query = searchParams.get('q');
+  
+  return (
+    <input
+      value={query}
+      onChange={(e) => setSearchParams({ q: e.target.value })}
+    />
+  );
+}
+```
+
+<Tabs>
+  <Tab title="URLSearchParams">
+    ```tsx
+    const [params, setParams] = useSearchParams();
+    
+    // Get value
+    const query = params.get('q');
+    
+    // Set params
+    setParams({ q: 'search term', page: '1' });
+    ```
+  </Tab>
+  
+  <Tab title="Object API">
+    ```tsx
+    import { useSearchParamsObject } from '@zayne-labs/toolkit-react';
+    
+    const [params, setParams] = useSearchParamsObject<{
+      q: string;
+      page: string;
+    }>();
+    
+    // Direct object access
+    console.log(params.q, params.page);
+    
+    // Update
+    setParams({ q: 'new search' });
+    ```
+  </Tab>
+</Tabs>
+
+## Advanced Hooks
+
+### createCustomContext
+
+Creates type-safe React context with built-in error handling.
+
+```tsx
+import { createCustomContext } from '@zayne-labs/toolkit-react';
+
+type ThemeContextValue = {
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+};
+
+const [ThemeProvider, useTheme] = createCustomContext<ThemeContextValue>({
+  name: 'Theme',
+  hookName: 'useTheme',
+  providerName: 'ThemeProvider',
+  strict: true,
+  errorMessage: 'useTheme must be used within ThemeProvider'
+});
+
+function App() {
+  const [theme, setTheme] = useState('light');
+  
+  return (
+    <ThemeProvider.Provider value={{ theme, toggleTheme: () => setTheme(t => t === 'light' ? 'dark' : 'light') }}>
+      <Child />
+    </ThemeProvider.Provider>
+  );
+}
+
+function Child() {
+  const { theme, toggleTheme } = useTheme(); // Type-safe!
+  return <button onClick={toggleTheme}>{theme}</button>;
+}
+```
+
+**Type Signature:**
+```tsx
+type CustomContextOptions<TContextValue, TStrict extends boolean> = {
+  defaultValue?: TContextValue | null;
+  errorMessage?: string;
+  extendValue?: (contextValue: NoInfer<TContextValue> | null) => TContextValue | null;
+  hookName?: string;
+  name?: string;
+  providerName?: string;
+  strict?: TStrict;
+};
+
+function createCustomContext<TContextValue = null, TStrict extends boolean = true>(
+  options?: CustomContextOptions<TContextValue, TStrict>
+): [
+  Provider: React.Context<TContextValue>,
+  useCustomContext: UseCustomContext<TContextValue, TStrict>
+];
+```
+
+### useConstant
+
+Lazy initialization that runs only once.
+
+```tsx
+import { useConstant } from '@zayne-labs/toolkit-react';
+
+function Component() {
+  const expensiveObject = useConstant(() => {
+    // This runs only once, even in strict mode
+    return createExpensiveObject();
+  });
+  
+  return <div>{expensiveObject.value}</div>;
+}
+```

@@ -1,0 +1,241 @@
+---
+title: Installation
+description: Install Zayne Labs Toolkit packages in your project
+---
+
+# Installation
+
+Zayne Labs Toolkit is available as a monorepo with three packages. You can install individual packages based on your needs or install all of them together.
+
+## Prerequisites
+
+<Note>
+  **Node.js 18.x or higher** is required. Verify your Node version:
+  
+  ```bash
+  node --version
+  ```
+</Note>
+
+## Package Overview
+
+The toolkit consists of three main packages:
+
+| Package | Description | Size Limit |
+|---------|-------------|------------|
+| `@zayne-labs/toolkit-core` | Core utilities and helpers | ~6.5 KB |
+| `@zayne-labs/toolkit-react` | React hooks and utilities | ~6.5 KB (hooks) |
+| `@zayne-labs/toolkit-type-helpers` | TypeScript type utilities | ~600 B |
+
+## Installation Methods
+
+### Install Core Utilities
+
+For framework-agnostic utilities that work anywhere:
+
+<CodeGroup>
+```bash npm
+npm install @zayne-labs/toolkit-core
+```
+
+```bash pnpm
+pnpm add @zayne-labs/toolkit-core
+```
+
+```bash yarn
+yarn add @zayne-labs/toolkit-core
+```
+</CodeGroup>
+
+### Install React Package
+
+For React-specific hooks and utilities:
+
+<CodeGroup>
+```bash npm
+npm install @zayne-labs/toolkit-react
+```
+
+```bash pnpm
+pnpm add @zayne-labs/toolkit-react
+```
+
+```bash yarn
+yarn add @zayne-labs/toolkit-react
+```
+</CodeGroup>
+
+<Note>
+  The React package has peer dependencies:
+  - `react` >= 19.0.0
+  - `@types/react` >= 19.0.0 (optional)
+  - `zustand` 5.x.x (optional, only if using Zustand utilities)
+  - `tailwind-merge` ^2.5.0 || ^3.0.0 (optional)
+</Note>
+
+### Install Type Helpers
+
+For TypeScript type utilities and helpers:
+
+<CodeGroup>
+```bash npm
+npm install @zayne-labs/toolkit-type-helpers
+```
+
+```bash pnpm
+pnpm add @zayne-labs/toolkit-type-helpers
+```
+
+```bash yarn
+yarn add @zayne-labs/toolkit-type-helpers
+```
+</CodeGroup>
+
+### Install Multiple Packages
+
+Install all packages you need in a single command:
+
+<CodeGroup>
+```bash npm
+npm install @zayne-labs/toolkit-core @zayne-labs/toolkit-react @zayne-labs/toolkit-type-helpers
+```
+
+```bash pnpm
+pnpm add @zayne-labs/toolkit-core @zayne-labs/toolkit-react @zayne-labs/toolkit-type-helpers
+```
+
+```bash yarn
+yarn add @zayne-labs/toolkit-core @zayne-labs/toolkit-react @zayne-labs/toolkit-type-helpers
+```
+</CodeGroup>
+
+## TypeScript Configuration
+
+For the best experience with TypeScript, ensure your `tsconfig.json` includes:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "skipLibCheck": true
+  }
+}
+```
+
+<Tip>
+  The toolkit uses ESM modules exclusively. Make sure your project is configured to handle ESM imports.
+</Tip>
+
+## Optional: Type Reset
+
+The type helpers package includes optional TypeScript resets for improved type safety:
+
+```typescript tsconfig.json
+{
+  "compilerOptions": {
+    // ... other options
+  },
+  "include": [
+    "node_modules/@zayne-labs/toolkit-type-helpers/resets/recommended.d.ts"
+  ]
+}
+```
+
+## Verify Installation
+
+Create a simple test file to verify the installation:
+
+```typescript test.ts
+import { copyToClipboard } from "@zayne-labs/toolkit-core";
+import type { Prettify } from "@zayne-labs/toolkit-type-helpers";
+
+type User = Prettify<{ id: number } & { name: string }>;
+
+console.log("Zayne Labs Toolkit is ready!");
+```
+
+Run it with:
+
+<CodeGroup>
+```bash node
+node test.ts
+```
+
+```bash tsx
+tsx test.ts
+```
+
+```bash bun
+bun test.ts
+```
+</CodeGroup>
+
+## Package Exports
+
+Each package provides specific export paths for tree-shaking:
+
+### Core Package
+```typescript
+import { /* utilities */ } from "@zayne-labs/toolkit-core";
+```
+
+### React Package
+```typescript
+// Hooks
+import { useToggle, useDisclosure } from "@zayne-labs/toolkit-react";
+
+// Utils
+import { composeRefs, mergeProps } from "@zayne-labs/toolkit-react/utils";
+
+// Zustand helpers
+import { createStoreContext } from "@zayne-labs/toolkit-react/zustand";
+
+// Zustand compatible mode
+import { /* compat helpers */ } from "@zayne-labs/toolkit-react/zustand-compat";
+```
+
+### Type Helpers Package
+```typescript
+import type { Prettify, DeepPrettify } from "@zayne-labs/toolkit-type-helpers";
+import { isString, isBoolean } from "@zayne-labs/toolkit-type-helpers";
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Build your first app with the toolkit.
+  </Card>
+  
+  <Card title="Core Utilities" icon="wrench" href="/core/overview">
+    Explore available core utilities.
+  </Card>
+  
+  <Card title="React Hooks" icon="react" href="/react/overview">
+    Discover React hooks and utilities.
+  </Card>
+  
+  <Card title="Type Helpers" icon="code" href="/type-helpers/overview">
+    Learn about TypeScript utilities.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Module not found errors">
+    Ensure you're using a bundler that supports ESM (Vite, Webpack 5+, or Rollup) and that your `package.json` has `"type": "module"` if using Node.js directly.
+  </Accordion>
+  
+  <Accordion title="TypeScript errors with React hooks">
+    Make sure you have `@types/react` >= 19.0.0 installed and that your TypeScript version is 5.0 or higher.
+  </Accordion>
+  
+  <Accordion title="Peer dependency warnings">
+    The React package has optional peer dependencies. You only need to install `zustand` if you're using Zustand utilities, and `tailwind-merge` if you're using style utilities.
+  </Accordion>
+</AccordionGroup>

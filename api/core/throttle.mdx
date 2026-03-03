@@ -1,0 +1,197 @@
+---
+title: "throttle"
+description: "Throttle function execution using timeout, time-based, or animation frame strategies."
+---
+
+## Overview
+
+The throttle utilities limit how often a function can be called. Unlike debouncing which delays execution, throttling ensures a function is called at most once in a specified time period.
+
+## Import
+
+```typescript
+import { 
+  throttleByTimeout, 
+  throttleByTime, 
+  throttleByFrame 
+} from "@zayne-labs/toolkit-core";
+```
+
+## throttleByTimeout
+
+Throttles function execution using `setTimeout`. Ensures the function is called at most once per delay period.
+
+### Signature
+
+```typescript
+function throttleByTimeout<TCallbackFn extends AnyFunction>(
+  callbackFn: TCallbackFn,
+  delay: number
+): ThrottledByTimeoutFn<TCallbackFn>
+```
+
+### Parameters
+
+<ParamField path="callbackFn" type="TCallbackFn" required>
+  The function to throttle.
+</ParamField>
+
+<ParamField path="delay" type="number" required>
+  The number of milliseconds to throttle invocations to.
+</ParamField>
+
+### Return Value
+
+<ResponseField name="ThrottledByTimeoutFn<TCallbackFn>" type="function">
+  A throttled function with the following members:
+  
+  <ResponseField name="(...parameters)" type="void">
+    Call the throttled function. Will only execute if no call is pending.
+  </ResponseField>
+  
+  <ResponseField name="cancelTimeout" type="() => void">
+    Cancels any pending timeout.
+  </ResponseField>
+</ResponseField>
+
+### Example
+
+```typescript
+const handleResize = () => {
+  console.log("Window resized:", window.innerWidth);
+};
+
+const throttledResize = throttleByTimeout(handleResize, 200);
+
+window.addEventListener("resize", throttledResize);
+
+// Cleanup
+window.removeEventListener("resize", throttledResize);
+throttledResize.cancelTimeout();
+```
+
+## throttleByTime
+
+Throttles function execution based on elapsed time since the last invocation. Uses `Date.now()` for time tracking.
+
+### Signature
+
+```typescript
+function throttleByTime<TCallbackFn extends AnyFunction>(
+  callbackFn: TCallbackFn,
+  delay: number
+): ThrottledByTimeFn<TCallbackFn>
+```
+
+### Parameters
+
+<ParamField path="callbackFn" type="TCallbackFn" required>
+  The function to throttle.
+</ParamField>
+
+<ParamField path="delay" type="number" required>
+  The minimum time in milliseconds between function invocations.
+</ParamField>
+
+### Return Value
+
+<ResponseField name="ThrottledByTimeFn<TCallbackFn>" type="function">
+  A throttled function that accepts the same parameters as the original callback.
+</ResponseField>
+
+### Example
+
+```typescript
+const trackScrollPosition = (event: Event) => {
+  console.log("Scroll Y:", window.scrollY);
+};
+
+const throttledScroll = throttleByTime(trackScrollPosition, 100);
+
+window.addEventListener("scroll", throttledScroll);
+```
+
+## throttleByFrame
+
+Throttles function execution to run at most once per animation frame using `requestAnimationFrame`.
+
+### Signature
+
+```typescript
+function throttleByFrame<TCallbackFn extends AnyFunction>(
+  callbackFn: TCallbackFn
+): ThrottledByFrameFn<TCallbackFn>
+```
+
+### Parameters
+
+<ParamField path="callbackFn" type="TCallbackFn" required>
+  The function to throttle to animation frames.
+</ParamField>
+
+### Return Value
+
+<ResponseField name="ThrottledByFrameFn<TCallbackFn>" type="function">
+  A throttled function with the following members:
+  
+  <ResponseField name="(...parameters)" type="void">
+    Call the throttled function. Will only execute once per animation frame.
+  </ResponseField>
+  
+  <ResponseField name="cancelAnimation" type="() => void">
+    Cancels any pending animation frame request.
+  </ResponseField>
+</ResponseField>
+
+### Example
+
+```typescript
+const updateParallax = () => {
+  const scrollY = window.scrollY;
+  document.querySelector(".parallax")?.style.setProperty(
+    "transform",
+    `translateY(${scrollY * 0.5}px)`
+  );
+};
+
+const throttledParallax = throttleByFrame(updateParallax);
+
+window.addEventListener("scroll", throttledParallax);
+
+// Cleanup
+window.removeEventListener("scroll", throttledParallax);
+throttledParallax.cancelAnimation();
+```
+
+## Comparison
+
+| Strategy | Best For | Cancellable | Timing Mechanism |
+|----------|----------|-------------|------------------|
+| `throttleByTimeout` | Network requests, API calls | Yes | `setTimeout` |
+| `throttleByTime` | High-frequency events, logging | No | `Date.now()` |
+| `throttleByFrame` | Visual updates, animations | Yes | `requestAnimationFrame` |
+
+## Common Use Cases
+
+### throttleByTimeout
+- API rate limiting
+- Button click protection
+- Form submission throttling
+
+### throttleByTime  
+- Scroll event handlers
+- Mouse move tracking
+- Keyboard input logging
+
+### throttleByFrame
+- Scroll-based animations
+- Drag and drop operations
+- Canvas rendering
+- Parallax effects
+
+## Notes
+
+- **throttleByTimeout**: Executes after the delay period, suitable for async operations
+- **throttleByTime**: Executes immediately if enough time has passed, best for real-time tracking
+- **throttleByFrame**: Syncs with browser repaint cycle (~60fps), optimal for smooth animations
+- All throttle functions preserve the original function's parameters and type safety

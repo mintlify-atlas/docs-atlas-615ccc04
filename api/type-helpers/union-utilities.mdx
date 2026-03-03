@@ -1,0 +1,202 @@
+---
+title: "Union Utilities"
+description: "Advanced type utilities for working with TypeScript union types"
+---
+
+## UnionDiscriminator
+
+Creates a discriminated union from an array of types, ensuring each type in the union has mutually exclusive properties.
+
+```typescript language="typescript"
+type UnionDiscriminator<
+  TArrayOfTypes extends unknown[],
+  TErrorMessages extends ErrorMessages<keyof MergeTypes<TArrayOfTypes>> = never,
+  TAccumulator = never,
+  TMergedProperties = MergeTypes<TArrayOfTypes>
+> = ...
+```
+
+<ParamField path="TArrayOfTypes" type="unknown[]">
+  Array of types to create a discriminated union from
+</ParamField>
+
+<ParamField path="TErrorMessages" type="ErrorMessages" default="never">
+  Optional custom error messages for disallowed properties
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+type Success = { success: true; data: string };
+type Loading = { loading: true };
+type Error = { error: true; message: string };
+
+// Creates a discriminated union where each type's unique properties are enforced
+type State = UnionDiscriminator<[Success, Loading, Error]>;
+
+// Valid usage
+const state1: State = { success: true, data: "hello" };
+const state2: State = { loading: true };
+const state3: State = { error: true, message: "failed" };
+
+// Invalid - mixing properties from different union members
+// const invalid: State = { success: true, loading: true }; // Error!
+```
+
+### With Custom Error Messages
+
+```typescript language="typescript"
+type StateWithErrors = UnionDiscriminator<
+  [Success, Loading, Error],
+  {
+    $all: "Cannot mix state properties";
+    loading: "Cannot have loading with other states";
+  }
+>;
+```
+
+## ExtractUnion
+
+Extracts a union type from arrays, sets, or object key/value types.
+
+```typescript language="typescript"
+type ExtractUnion<
+  TObject,
+  TVariant extends InferredUnionVariant = "keys"
+> =
+  TObject extends Array<infer TUnion> | ReadonlyArray<infer TUnion> | Set<infer TUnion>
+    ? TUnion
+    : TObject extends Record<infer TKeys, infer TValues>
+      ? TVariant extends "keys"
+        ? TKeys
+        : Prettify<Writeable<TValues, "deep">>
+      : never;
+```
+
+<ParamField path="TObject" type="array | object | set">
+  The collection type to extract union from
+</ParamField>
+
+<ParamField path="TVariant" type="'keys' | 'values'" default="'keys'">
+  Whether to extract keys or values (for objects)
+</ParamField>
+
+### Example: Array Types
+
+```typescript language="typescript"
+const colors = ["red", "green", "blue"] as const;
+
+type Color = ExtractUnion<typeof colors>;
+// Result: "red" | "green" | "blue"
+```
+
+### Example: Object Keys
+
+```typescript language="typescript"
+const routes = {
+  home: "/",
+  about: "/about",
+  contact: "/contact",
+} as const;
+
+type RouteKey = ExtractUnion<typeof routes, "keys">;
+// Result: "home" | "about" | "contact"
+```
+
+### Example: Object Values
+
+```typescript language="typescript"
+const routes = {
+  home: "/",
+  about: "/about",
+  contact: "/contact",
+} as const;
+
+type RoutePath = ExtractUnion<typeof routes, "values">;
+// Result: "/" | "/about" | "/contact"
+```
+
+### Example: Set Types
+
+```typescript language="typescript"
+const statusSet = new Set(["pending", "active", "completed"] as const);
+
+type Status = ExtractUnion<typeof statusSet>;
+// Result: "pending" | "active" | "completed"
+```
+
+## UnionToIntersection
+
+Converts a union type to an intersection type.
+
+```typescript language="typescript"
+type UnionToIntersection<TUnion> =
+  (TUnion extends unknown ? (param: TUnion) => void : never) extends
+    (param: infer TParam) => void
+    ? TParam
+    : never;
+```
+
+<ParamField path="TUnion" type="union">
+  The union type to convert to an intersection
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+type A = { a: string };
+type B = { b: number };
+type C = { c: boolean };
+
+type Union = A | B | C;
+type Intersection = UnionToIntersection<Union>;
+// Result: { a: string } & { b: number } & { c: boolean }
+// Simplified: { a: string; b: number; c: boolean }
+```
+
+### Practical Use Case
+
+```typescript language="typescript"
+type EventHandlers =
+  | { onClick: () => void }
+  | { onHover: () => void }
+  | { onFocus: () => void };
+
+// Combine all possible event handlers into one type
+type AllHandlers = UnionToIntersection<EventHandlers>;
+// Result: {
+//   onClick: () => void;
+//   onHover: () => void;
+//   onFocus: () => void;
+// }
+```
+
+## MergeTypes
+
+Merges all types in an array into a single type (internal utility used by UnionDiscriminator).
+
+```typescript language="typescript"
+type MergeTypes<
+  TArrayOfTypes extends unknown[],
+  TAccumulator = NonNullable<unknown>
+> = ...
+```
+
+<ParamField path="TArrayOfTypes" type="unknown[]">
+  Array of types to merge
+</ParamField>
+
+<ParamField path="TAccumulator" type="any" default="NonNullable<unknown>">
+  Accumulator for the resulting merged type
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+type Part1 = { a: string };
+type Part2 = { b: number };
+type Part3 = { c: boolean };
+
+type Merged = MergeTypes<[Part1, Part2, Part3]>;
+// Result: { a: string; b: number; c: boolean }
+```

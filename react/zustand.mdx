@@ -1,0 +1,649 @@
+---
+title: Zustand Integration
+description: Zustand state management utilities for React
+---
+
+## Introduction
+
+The `@zayne-labs/toolkit-react/zustand` module provides utilities to create and use Zustand stores with React, including context-based stores and simplified store creation.
+
+<Note>
+  Zustand 5.x.x is required as a peer dependency.
+</Note>
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @zayne-labs/toolkit-react zustand
+```
+
+```bash pnpm
+pnpm add @zayne-labs/toolkit-react zustand
+```
+
+```bash yarn
+yarn add @zayne-labs/toolkit-react zustand
+```
+</CodeGroup>
+
+Import from the zustand subpath:
+
+```tsx
+import { createReactStore, createReactStoreContext } from '@zayne-labs/toolkit-react/zustand';
+```
+
+## createReactStore
+
+Creates a Zustand store with a built-in React hook.
+
+### Basic Usage
+
+```tsx
+import { createReactStore } from '@zayne-labs/toolkit-react/zustand';
+
+const useCounterStore = createReactStore<{
+  count: number;
+  increment: () => void;
+  decrement: () => void;
+}>((set) => ({
+  count: 0,
+  increment: () => set((state) => ({ count: state.count + 1 })),
+  decrement: () => set((state) => ({ count: state.count - 1 }))
+}));
+
+function Counter() {
+  const count = useCounterStore((state) => state.count);
+  const increment = useCounterStore((state) => state.increment);
+  const decrement = useCounterStore((state) => state.decrement);
+  
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={increment}>+</button>
+      <button onClick={decrement}>-</button>
+    </div>
+  );
+}
+```
+
+### Store as Hook
+
+The returned store is both a hook and has store methods:
+
+```tsx
+const useUserStore = createReactStore<UserState>((set) => ({
+  user: null,
+  setUser: (user) => set({ user })
+}));
+
+// Use as a hook
+function Component() {
+  const user = useUserStore((state) => state.user);
+  return <div>{user?.name}</div>;
+}
+
+// Access store methods outside React
+function loginUser(userData) {
+  useUserStore.setState({ user: userData });
+}
+
+// Subscribe to store changes
+const unsubscribe = useUserStore.subscribe((state) => {
+  console.log('User changed:', state.user);
+});
+```
+
+### Advanced Examples
+
+<Tabs>
+  <Tab title="With Selectors">
+    ```tsx
+    const useTodoStore = createReactStore<TodoState>((set) => ({
+      todos: [],
+      filter: 'all',
+      addTodo: (text) => set((state) => ({
+        todos: [...state.todos, { id: Date.now(), text, done: false }]
+      })),
+      toggleTodo: (id) => set((state) => ({
+        todos: state.todos.map(todo => 
+          todo.id === id ? { ...todo, done: !todo.done } : todo
+        )
+      })),
+      setFilter: (filter) => set({ filter })
+    }));
+    
+    function TodoList() {
+      // Select only what you need
+      const todos = useTodoStore((state) => state.todos);
+      const filter = useTodoStore((state) => state.filter);
+      const toggleTodo = useTodoStore((state) => state.toggleTodo);
+      
+      const filteredTodos = todos.filter(todo => {
+        if (filter === 'active') return !todo.done;
+        if (filter === 'done') return todo.done;
+        return true;
+      });
+      
+      return (
+        <ul>
+          {filteredTodos.map(todo => (
+            <li key={todo.id} onClick={() => toggleTodo(todo.id)}>
+              {todo.text}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="With Middleware">
+    ```tsx
+    import { persist } from 'zustand/middleware';
+    
+    const useSettingsStore = createReactStore<SettingsState>()((
+      persist(
+        (set) => ({
+          theme: 'light',
+          language: 'en',
+          setTheme: (theme) => set({ theme }),
+          setLanguage: (language) => set({ language })
+        }),
+        {
+          name: 'app-settings',
+        }
+      )
+    ));
+    
+    function Settings() {
+      const theme = useSettingsStore((state) => state.theme);
+      const setTheme = useSettingsStore((state) => state.setTheme);
+      
+      return (
+        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+          Current: {theme}
+        </button>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Async Actions">
+    ```tsx
+    interface DataState {
+      data: Data | null;
+      loading: boolean;
+      error: Error | null;
+      fetchData: () => Promise<void>;
+    }
+    
+    const useDataStore = createReactStore<DataState>((set) => ({
+      data: null,
+      loading: false,
+      error: null,
+      fetchData: async () => {
+        set({ loading: true, error: null });
+        try {
+          const response = await fetch('/api/data');
+          const data = await response.json();
+          set({ data, loading: false });
+        } catch (error) {
+          set({ error, loading: false });
+        }
+      }
+    }));
+    
+    function DataComponent() {
+      const { data, loading, error, fetchData } = useDataStore();
+      
+      useEffect(() => {
+        fetchData();
+      }, [fetchData]);
+      
+      if (loading) return <div>Loading...</div>;
+      if (error) return <div>Error: {error.message}</div>;
+      
+      return <div>{data?.content}</div>;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Type Signature
+
+```tsx
+type StoreStateInitializer<TState> = (
+  set: SetState<TState>,
+  get: GetState<TState>,
+  api: StoreApi<TState>
+) => TState;
+
+type CreateReactStore = {
+  <TState>(
+    initializer: StoreStateInitializer<TState>
+  ): UseBoundStore<StoreApi<TState>>;
+  
+  <TState>(): (
+    initializer: StoreStateInitializer<TState>
+  ) => UseBoundStore<StoreApi<TState>>;
+};
+
+type UseBoundStore<TStore extends StoreApi<TState>> = {
+  // Use as hook
+  <TSlice = TState>(selector?: SelectorFn<TState, TSlice>): TSlice;
+  
+  // Store API methods
+  setState: TStore['setState'];
+  getState: TStore['getState'];
+  subscribe: TStore['subscribe'];
+  destroy: TStore['destroy'];
+};
+```
+
+## createReactStoreContext
+
+Creates a Zustand store that's provided via React Context, useful for component-scoped state.
+
+### Basic Usage
+
+```tsx
+import { createReactStoreContext } from '@zayne-labs/toolkit-react/zustand';
+import { createStore } from '@zayne-labs/toolkit-core';
+
+interface FormState {
+  values: Record<string, string>;
+  errors: Record<string, string>;
+  setFieldValue: (field: string, value: string) => void;
+  setFieldError: (field: string, error: string) => void;
+}
+
+const [FormStoreProvider, useFormStore] = createReactStoreContext<FormState>({
+  name: 'FormStore',
+  hookName: 'useFormStore',
+  providerName: 'FormStoreProvider'
+});
+
+function Form({ children, initialValues }) {
+  const store = createStore<FormState>((set) => ({
+    values: initialValues,
+    errors: {},
+    setFieldValue: (field, value) => set((state) => ({
+      values: { ...state.values, [field]: value }
+    })),
+    setFieldError: (field, error) => set((state) => ({
+      errors: { ...state.errors, [field]: error }
+    }))
+  }));
+  
+  return (
+    <FormStoreProvider store={store}>
+      {children}
+    </FormStoreProvider>
+  );
+}
+
+function FormField({ name }) {
+  const value = useFormStore((state) => state.values[name]);
+  const error = useFormStore((state) => state.errors[name]);
+  const setFieldValue = useFormStore((state) => state.setFieldValue);
+  
+  return (
+    <div>
+      <input
+        value={value}
+        onChange={(e) => setFieldValue(name, e.target.value)}
+      />
+      {error && <span className="error">{error}</span>}
+    </div>
+  );
+}
+
+// Usage
+function App() {
+  return (
+    <Form initialValues={{ name: '', email: '' }}>
+      <FormField name="name" />
+      <FormField name="email" />
+    </Form>
+  );
+}
+```
+
+### Multiple Store Instances
+
+Each provider creates its own isolated store instance:
+
+```tsx
+const [TabsProvider, useTabsStore] = createReactStoreContext<TabsState>();
+
+function App() {
+  const tabsStore1 = createStore<TabsState>((set) => ({ activeTab: 0 }));
+  const tabsStore2 = createStore<TabsState>((set) => ({ activeTab: 0 }));
+  
+  return (
+    <div>
+      <TabsProvider store={tabsStore1}>
+        <Tabs /> {/* Independent state */}
+      </TabsProvider>
+      
+      <TabsProvider store={tabsStore2}>
+        <Tabs /> {/* Independent state */}
+      </TabsProvider>
+    </div>
+  );
+}
+```
+
+### Advanced Examples
+
+<Tabs>
+  <Tab title="Wizard Form">
+    ```tsx
+    interface WizardState {
+      step: number;
+      data: Record<string, unknown>;
+      goNext: () => void;
+      goPrev: () => void;
+      setData: (key: string, value: unknown) => void;
+    }
+    
+    const [WizardProvider, useWizard] = createReactStoreContext<WizardState>({
+      name: 'Wizard'
+    });
+    
+    function Wizard({ children, steps }) {
+      const store = createStore<WizardState>((set) => ({
+        step: 0,
+        data: {},
+        goNext: () => set((state) => ({
+          step: Math.min(state.step + 1, steps - 1)
+        })),
+        goPrev: () => set((state) => ({
+          step: Math.max(state.step - 1, 0)
+        })),
+        setData: (key, value) => set((state) => ({
+          data: { ...state.data, [key]: value }
+        }))
+      }));
+      
+      return <WizardProvider store={store}>{children}</WizardProvider>;
+    }
+    
+    function WizardStep({ children }) {
+      const { goNext, goPrev, step } = useWizard();
+      
+      return (
+        <div>
+          {children}
+          <button onClick={goPrev} disabled={step === 0}>Previous</button>
+          <button onClick={goNext}>Next</button>
+        </div>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Nested Stores">
+    ```tsx
+    const [AppProvider, useAppStore] = createReactStoreContext<AppState>();
+    const [FeatureProvider, useFeatureStore] = createReactStoreContext<FeatureState>();
+    
+    function App() {
+      const appStore = createStore<AppState>((set) => ({
+        user: null,
+        settings: {}
+      }));
+      
+      return (
+        <AppProvider store={appStore}>
+          <Feature />
+        </AppProvider>
+      );
+    }
+    
+    function Feature() {
+      const user = useAppStore((state) => state.user);
+      
+      const featureStore = createStore<FeatureState>((set) => ({
+        items: [],
+        selectedId: null
+      }));
+      
+      return (
+        <FeatureProvider store={featureStore}>
+          <FeatureContent userId={user?.id} />
+        </FeatureProvider>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Scoped State">
+    ```tsx
+    interface ChatState {
+      messages: Message[];
+      input: string;
+      sendMessage: () => void;
+    }
+    
+    const [ChatProvider, useChatStore] = createReactStoreContext<ChatState>();
+    
+    function ChatRoom({ roomId }) {
+      const store = useMemo(
+        () => createStore<ChatState>((set, get) => ({
+          messages: [],
+          input: '',
+          sendMessage: () => {
+            const { input } = get();
+            // Send message to roomId
+            set({ input: '', messages: [...get().messages, newMessage] });
+          }
+        })),
+        [roomId]
+      );
+      
+      return (
+        <ChatProvider store={store}>
+          <MessageList />
+          <MessageInput />
+        </ChatProvider>
+      );
+    }
+    
+    function MessageInput() {
+      const input = useChatStore((state) => state.input);
+      const sendMessage = useChatStore((state) => state.sendMessage);
+      
+      return (
+        <div>
+          <input
+            value={input}
+            onChange={(e) => useChatStore.setState({ input: e.target.value })}
+          />
+          <button onClick={sendMessage}>Send</button>
+        </div>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Type Signature
+
+```tsx
+function createReactStoreContext<
+  TState extends Record<string, unknown>,
+  TStore extends StoreApi<TState> = StoreApi<TState>
+>(
+  options?: CustomContextOptions<TStore, true>
+): [
+  ZustandStoreContextProvider: React.FC<{
+    children: React.ReactNode;
+    store: TStore;
+  }>,
+  useZustandStoreContext: <TResult = TState>(
+    selector?: SelectorFn<TState, TResult>
+  ) => TResult
+];
+```
+
+## Comparison: Store vs Context Store
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>createReactStore</th>
+      <th>createReactStoreContext</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Scope</td>
+      <td>Global (singleton)</td>
+      <td>Component tree (via Context)</td>
+    </tr>
+    <tr>
+      <td>Multiple Instances</td>
+      <td>No</td>
+      <td>Yes (one per provider)</td>
+    </tr>
+    <tr>
+      <td>Use Case</td>
+      <td>App-wide state</td>
+      <td>Component-scoped state</td>
+    </tr>
+    <tr>
+      <td>Performance</td>
+      <td>No re-renders for context changes</td>
+      <td>Context provider overhead</td>
+    </tr>
+    <tr>
+      <td>Setup Complexity</td>
+      <td>Simple</td>
+      <td>Requires provider wrapper</td>
+    </tr>
+  </tbody>
+</table>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Selectors" icon="filter">
+    Always use selectors to prevent unnecessary re-renders
+    ```tsx
+    // Good
+    const user = useStore((s) => s.user);
+    
+    // Bad (re-renders on any state change)
+    const { user } = useStore();
+    ```
+  </Card>
+  
+  <Card title="Colocate Actions" icon="code">
+    Keep actions with state in the store
+    ```tsx
+    const store = createReactStore((set) => ({
+      count: 0,
+      increment: () => set(s => ({ count: s.count + 1 }))
+    }));
+    ```
+  </Card>
+  
+  <Card title="Split Large Stores" icon="scissors">
+    Use multiple stores for unrelated state
+    ```tsx
+    const useUserStore = createReactStore(...);
+    const useSettingsStore = createReactStore(...);
+    ```
+  </Card>
+  
+  <Card title="Type Safety" icon="shield">
+    Always define TypeScript interfaces for state
+    ```tsx
+    interface AppState {
+      user: User | null;
+      isLoading: boolean;
+    }
+    const store = createReactStore<AppState>(...);
+    ```
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Reset Store to Initial State
+
+```tsx
+const initialState = {
+  count: 0,
+  items: []
+};
+
+const useStore = createReactStore<State>((set) => ({
+  ...initialState,
+  reset: () => set(initialState)
+}));
+
+function Component() {
+  const reset = useStore((state) => state.reset);
+  return <button onClick={reset}>Reset</button>;
+}
+```
+
+### Computed Values
+
+```tsx
+const useTodoStore = createReactStore<TodoState>((set, get) => ({
+  todos: [],
+  get completedCount() {
+    return get().todos.filter(t => t.done).length;
+  },
+  get activeCount() {
+    return get().todos.filter(t => !t.done).length;
+  }
+}));
+
+function Stats() {
+  const completedCount = useTodoStore((s) => s.completedCount);
+  const activeCount = useTodoStore((s) => s.activeCount);
+  
+  return <div>{completedCount} done, {activeCount} active</div>;
+}
+```
+
+### Subscription Outside React
+
+```tsx
+const useAuthStore = createReactStore<AuthState>((set) => ({
+  token: null,
+  setToken: (token) => set({ token })
+}));
+
+// Subscribe to changes outside React
+const unsubscribe = useAuthStore.subscribe((state) => {
+  // Update axios headers when token changes
+  axios.defaults.headers.common['Authorization'] = `Bearer ${state.token}`;
+});
+
+// Cleanup
+unsubscribe();
+```
+
+## Zustand Compatible Mode
+
+For compatibility with standard Zustand patterns, use the compatible import:
+
+```tsx
+import { create } from '@zayne-labs/toolkit-react/zustand-compat';
+
+const useStore = create<State>((set) => ({
+  count: 0,
+  increment: () => set((state) => ({ count: state.count + 1 }))
+}));
+```
+
+<Note>
+  The compatible mode provides the same API as Zustand's `create` function but uses the toolkit's internal implementation.
+</Note>

@@ -1,0 +1,361 @@
+---
+title: createReactStoreContext
+description: Create a Zustand store with React context for isolated store instances
+---
+
+## Overview
+
+`createReactStoreContext` creates a Zustand store with React context integration, allowing you to have multiple isolated store instances within the same React tree. This is useful when you need different parts of your application to have their own store instances.
+
+## Import
+
+```typescript
+import { createReactStoreContext } from "@zayne-labs/toolkit-react";
+```
+
+## Signature
+
+```typescript
+function createReactStoreContext<
+  TState extends Record<string, unknown>,
+  TStore extends StoreApi<TState> = StoreApi<TState>
+>(
+  options?: CustomContextOptions<TStore, true>
+): [
+  ZustandStoreContextProvider: React.ComponentType<ZustandStoreContextProviderProps>,
+  useZustandStoreContext: <TResult = TState>(selector?: SelectorFn<TState, TResult>) => TResult
+]
+```
+
+## Parameters
+
+<ParamField path="options" type="CustomContextOptions<TStore, true>">
+  Configuration options for the context (inherits from `createCustomContext`)
+  
+  <ParamField path="options.name" type="string">
+    Display name for the context
+  </ParamField>
+  
+  <ParamField path="options.hookName" type="string">
+    Name of the hook for error messages
+  </ParamField>
+  
+  <ParamField path="options.providerName" type="string">
+    Name of the provider for error messages
+  </ParamField>
+  
+  <ParamField path="options.errorMessage" type="string">
+    Custom error message when hook is used outside of provider
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="[0]" type="ZustandStoreContextProvider">
+  The Provider component that accepts:
+  
+  <ParamField path="props.store" type="TStore" required>
+    The Zustand store instance to provide
+  </ParamField>
+  
+  <ParamField path="props.children" type="React.ReactNode" required>
+    Child components that can access the store
+  </ParamField>
+</ResponseField>
+
+<ResponseField name="[1]" type="useZustandStoreContext">
+  Hook to access the store from context
+  
+  - **Without selector**: Returns the entire state
+  - **With selector**: Returns selected value from state
+</ResponseField>
+
+## Types
+
+```typescript
+type ZustandStoreContextProviderProps = {
+  children: React.ReactNode;
+  store: TStore;
+};
+
+type SelectorFn<TState, TResult> = (state: TState) => TResult;
+```
+
+## Examples
+
+### Basic Form Store with Context
+
+```typescript
+import { createReactStoreContext } from "@zayne-labs/toolkit-react";
+import { createStore } from "@zayne-labs/toolkit-core";
+
+type FormState = {
+  values: Record<string, unknown>;
+  errors: Record<string, string>;
+  setField: (name: string, value: unknown) => void;
+  setError: (name: string, error: string) => void;
+  reset: () => void;
+};
+
+const [FormStoreProvider, useFormStore] = createReactStoreContext<FormState>({
+  name: "FormStore",
+  hookName: "useFormStore",
+  providerName: "FormStoreProvider",
+});
+
+function createFormStore() {
+  return createStore<FormState>((set) => ({
+    values: {},
+    errors: {},
+    setField: (name, value) =>
+      set((state) => ({
+        values: { ...state.values, [name]: value },
+        errors: { ...state.errors, [name]: "" },
+      })),
+    setError: (name, error) =>
+      set((state) => ({
+        errors: { ...state.errors, [name]: error },
+      })),
+    reset: () => set({ values: {}, errors: {} }),
+  }));
+}
+
+function Form({ children }: { children: React.ReactNode }) {
+  const store = useMemo(() => createFormStore(), []);
+  
+  return <FormStoreProvider store={store}>{children}</FormStoreProvider>;
+}
+
+function FormField({ name }: { name: string }) {
+  const value = useFormStore((state) => state.values[name] as string);
+  const error = useFormStore((state) => state.errors[name]);
+  const setField = useFormStore((state) => state.setField);
+  
+  return (
+    <div>
+      <input
+        value={value || ""}
+        onChange={(e) => setField(name, e.target.value)}
+      />
+      {error && <span>{error}</span>}
+    </div>
+  );
+}
+```
+
+### Multiple Store Instances
+
+```typescript
+import { createReactStoreContext } from "@zayne-labs/toolkit-react";
+import { createStore } from "@zayne-labs/toolkit-core";
+
+type TabState = {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+};
+
+const [TabStoreProvider, useTabStore] = createReactStoreContext<TabState>({
+  name: "TabStore",
+});
+
+function createTabStore(defaultTab: string) {
+  return createStore<TabState>((set) => ({
+    activeTab: defaultTab,
+    setActiveTab: (tab) => set({ activeTab: tab }),
+  }));
+}
+
+function App() {
+  const leftStore = useMemo(() => createTabStore("home"), []);
+  const rightStore = useMemo(() => createTabStore("profile"), []);
+  
+  return (
+    <div>
+      <TabStoreProvider store={leftStore}>
+        <TabPanel tabs={["home", "about", "contact"]} />
+      </TabStoreProvider>
+      
+      <TabStoreProvider store={rightStore}>
+        <TabPanel tabs={["profile", "settings", "help"]} />
+      </TabStoreProvider>
+    </div>
+  );
+}
+
+function TabPanel({ tabs }: { tabs: string[] }) {
+  const activeTab = useTabStore((state) => state.activeTab);
+  const setActiveTab = useTabStore((state) => state.setActiveTab);
+  
+  return (
+    <div>
+      {tabs.map((tab) => (
+        <button
+          key={tab}
+          onClick={() => setActiveTab(tab)}
+          className={activeTab === tab ? "active" : ""}
+        >
+          {tab}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+### Wizard/Multi-Step Form
+
+```typescript
+import { createReactStoreContext } from "@zayne-labs/toolkit-react";
+import { createStore } from "@zayne-labs/toolkit-core";
+
+type WizardState = {
+  currentStep: number;
+  data: Record<string, unknown>;
+  nextStep: () => void;
+  prevStep: () => void;
+  setData: (key: string, value: unknown) => void;
+  reset: () => void;
+};
+
+const [WizardStoreProvider, useWizardStore] = createReactStoreContext<WizardState>({
+  name: "WizardStore",
+  hookName: "useWizardStore",
+  providerName: "WizardStoreProvider",
+});
+
+function createWizardStore(totalSteps: number) {
+  return createStore<WizardState>((set) => ({
+    currentStep: 0,
+    data: {},
+    nextStep: () =>
+      set((state) => ({
+        currentStep: Math.min(state.currentStep + 1, totalSteps - 1),
+      })),
+    prevStep: () =>
+      set((state) => ({
+        currentStep: Math.max(state.currentStep - 1, 0),
+      })),
+    setData: (key, value) =>
+      set((state) => ({
+        data: { ...state.data, [key]: value },
+      })),
+    reset: () => set({ currentStep: 0, data: {} }),
+  }));
+}
+
+function Wizard({ steps }: { steps: React.ComponentType[] }) {
+  const store = useMemo(() => createWizardStore(steps.length), [steps.length]);
+  
+  return (
+    <WizardStoreProvider store={store}>
+      <WizardContent steps={steps} />
+    </WizardStoreProvider>
+  );
+}
+
+function WizardContent({ steps }: { steps: React.ComponentType[] }) {
+  const currentStep = useWizardStore((state) => state.currentStep);
+  const CurrentStepComponent = steps[currentStep];
+  
+  return (
+    <div>
+      <CurrentStepComponent />
+      <WizardNavigation />
+    </div>
+  );
+}
+
+function WizardNavigation() {
+  const currentStep = useWizardStore((state) => state.currentStep);
+  const nextStep = useWizardStore((state) => state.nextStep);
+  const prevStep = useWizardStore((state) => state.prevStep);
+  
+  return (
+    <div>
+      <button onClick={prevStep} disabled={currentStep === 0}>
+        Previous
+      </button>
+      <button onClick={nextStep}>Next</button>
+    </div>
+  );
+}
+```
+
+### Modal/Dialog Store
+
+```typescript
+import { createReactStoreContext } from "@zayne-labs/toolkit-react";
+import { createStore } from "@zayne-labs/toolkit-core";
+
+type ModalState = {
+  isOpen: boolean;
+  data: unknown;
+  open: (data?: unknown) => void;
+  close: () => void;
+};
+
+const [ModalStoreProvider, useModalStore] = createReactStoreContext<ModalState>({
+  name: "ModalStore",
+});
+
+function createModalStore() {
+  return createStore<ModalState>((set) => ({
+    isOpen: false,
+    data: null,
+    open: (data) => set({ isOpen: true, data }),
+    close: () => set({ isOpen: false, data: null }),
+  }));
+}
+
+function Modal({ children }: { children: React.ReactNode }) {
+  const store = useMemo(() => createModalStore(), []);
+  
+  return <ModalStoreProvider store={store}>{children}</ModalStoreProvider>;
+}
+
+function ModalContent() {
+  const isOpen = useModalStore((state) => state.isOpen);
+  const data = useModalStore((state) => state.data);
+  const close = useModalStore((state) => state.close);
+  
+  if (!isOpen) return null;
+  
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <button onClick={close}>Close</button>
+        <div>{JSON.stringify(data)}</div>
+      </div>
+    </div>
+  );
+}
+
+function ModalTrigger({ data }: { data: unknown }) {
+  const open = useModalStore((state) => state.open);
+  
+  return <button onClick={() => open(data)}>Open Modal</button>;
+}
+```
+
+## When to Use
+
+Use `createReactStoreContext` when you need:
+
+1. **Multiple independent instances**: Different parts of your app need their own store instances
+2. **Scoped state**: State should be scoped to a specific component tree
+3. **Dynamic stores**: Stores need to be created with different initial values
+4. **Component isolation**: Components should work independently with their own state
+
+Use `createReactStore` when you need:
+
+1. **Global state**: Single source of truth across your entire app
+2. **Singleton store**: One store instance for the entire application
+3. **Simple state management**: No need for multiple instances
+
+## Best Practices
+
+1. **Create store in useMemo**: Always wrap store creation in `useMemo` to avoid creating new instances on re-renders
+2. **Type your state**: Use TypeScript for better developer experience
+3. **Use selectors**: Always use selectors to avoid unnecessary re-renders
+4. **Provide meaningful names**: Set context name, hook name, and provider name for better error messages
+5. **Clean up**: Stores are automatically cleaned up when the provider unmounts

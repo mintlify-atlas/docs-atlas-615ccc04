@@ -1,0 +1,762 @@
+---
+title: Async Utilities
+description: Debouncing, throttling, promises, and timing utilities for async operations
+---
+
+## Overview
+
+The async utilities help you control the timing and execution of functions, manage promises, and handle animations smoothly. These utilities are essential for performance optimization and creating responsive user interfaces.
+
+---
+
+## Debouncing
+
+### debounce
+
+Delays function execution until after a specified delay has elapsed since the last invocation.
+
+```typescript
+import { debounce } from '@zayne-labs/toolkit-core';
+
+// Basic usage
+const handleSearch = debounce((query: string) => {
+  console.log('Searching for:', query);
+}, 300);
+
+// User types rapidly
+handleSearch('t');      // Not executed
+handleSearch('ty');     // Not executed
+handleSearch('typ');    // Not executed
+handleSearch('type');   // Executed after 300ms
+```
+
+**Type Signature:**
+```typescript
+type DebounceOptions = {
+  maxWait?: number;
+};
+
+const debounce: <TCallbackFn extends AnyFunction>(
+  callbackFn: TCallbackFn,
+  delay: number | undefined,
+  options?: DebounceOptions
+) => DebouncedFn<TCallbackFn>
+```
+
+### Features
+
+<Tabs>
+  <Tab title="Basic Debouncing">
+    ```typescript
+    const debouncedFn = debounce(() => {
+      console.log('Executed after 500ms of inactivity');
+    }, 500);
+    
+    debouncedFn(); // Starts timer
+    debouncedFn(); // Resets timer
+    debouncedFn(); // Resets timer again
+    // Executes once after 500ms of no calls
+    ```
+  </Tab>
+  
+  <Tab title="Max Wait">
+    Ensures the function executes at least once within the max wait period.
+    
+    ```typescript
+    const debouncedScroll = debounce(
+      () => {
+        console.log('Scroll handler');
+      },
+      100,
+      { maxWait: 1000 }
+    );
+    
+    // Even if called continuously, will execute
+    // at least once every 1000ms
+    window.addEventListener('scroll', debouncedScroll);
+    ```
+  </Tab>
+  
+  <Tab title="Dynamic Delay">
+    Override the delay on a per-call basis.
+    
+    ```typescript
+    const debouncedFn = debounce((message: string) => {
+      console.log(message);
+    }, 300);
+    
+    // Normal call with default 300ms
+    debouncedFn('Hello');
+    
+    // Override delay to 1000ms for this call
+    debouncedFn(['Urgent!'], { $delay: 1000 });
+    ```
+  </Tab>
+  
+  <Tab title="Cancel">
+    Cancel pending executions.
+    
+    ```typescript
+    const debouncedSave = debounce((data) => {
+      saveToServer(data);
+    }, 1000);
+    
+    debouncedSave({ name: 'John' });
+    
+    // Cancel the pending save
+    debouncedSave.cancel();
+    
+    // Cancel only the maxWait timer
+    debouncedSave.cancelMaxWait();
+    ```
+  </Tab>
+</Tabs>
+
+### Common Use Cases
+
+```typescript
+import { debounce } from '@zayne-labs/toolkit-core';
+
+// Search input
+const searchInput = document.querySelector<HTMLInputElement>('#search');
+const debouncedSearch = debounce(async (query: string) => {
+  const results = await fetch(`/api/search?q=${query}`);
+  displayResults(await results.json());
+}, 300);
+
+searchInput?.addEventListener('input', (e) => {
+  debouncedSearch(e.target.value);
+});
+
+// Window resize
+const debouncedResize = debounce(() => {
+  updateLayout();
+}, 200, { maxWait: 500 });
+
+window.addEventListener('resize', debouncedResize);
+
+// Form validation
+const debouncedValidate = debounce(async (email: string) => {
+  const isValid = await validateEmail(email);
+  showValidationResult(isValid);
+}, 500);
+
+emailInput.addEventListener('input', (e) => {
+  debouncedValidate(e.target.value);
+});
+```
+
+<Note>
+  Debouncing is perfect for search inputs, form validation, and any scenario where you want to wait for the user to stop typing before executing an action.
+</Note>
+
+---
+
+## Throttling
+
+Limit how often a function can execute within a time window.
+
+### throttleByTimeout
+
+Ensures a function executes at most once per delay period using setTimeout.
+
+```typescript
+import { throttleByTimeout } from '@zayne-labs/toolkit-core';
+
+const handleScroll = throttleByTimeout(() => {
+  console.log('Scroll position:', window.scrollY);
+}, 100);
+
+window.addEventListener('scroll', handleScroll);
+
+// Cancel if needed
+handleScroll.cancelTimeout();
+```
+
+**Type Signature:**
+```typescript
+const throttleByTimeout: <TCallbackFn extends AnyFunction>(
+  callbackFn: TCallbackFn,
+  delay: number
+) => ThrottledByTimeoutFn<TCallbackFn>
+```
+
+---
+
+### throttleByTime
+
+Throttles based on elapsed time without using timers (performance optimized).
+
+```typescript
+import { throttleByTime } from '@zayne-labs/toolkit-core';
+
+const trackMousePosition = throttleByTime((e: MouseEvent) => {
+  console.log('Mouse at:', e.clientX, e.clientY);
+  sendAnalytics({ x: e.clientX, y: e.clientY });
+}, 1000);
+
+document.addEventListener('mousemove', trackMousePosition);
+```
+
+**Type Signature:**
+```typescript
+const throttleByTime: <TCallbackFn extends AnyFunction>(
+  callbackFn: TCallbackFn,
+  delay: number
+) => ThrottledByTimeFn<TCallbackFn>
+```
+
+<Note>
+  `throttleByTime` uses `Date.now()` for time tracking and doesn't set timers, making it slightly more performant for high-frequency events.
+</Note>
+
+---
+
+### throttleByFrame
+
+Throttles function execution to at most once per animation frame.
+
+```typescript
+import { throttleByFrame } from '@zayne-labs/toolkit-core';
+
+const updateAnimation = throttleByFrame(() => {
+  // Update DOM or canvas
+  element.style.transform = `translateX(${position}px)`;
+});
+
+window.addEventListener('scroll', updateAnimation);
+
+// Cancel pending frame
+updateAnimation.cancelAnimation();
+```
+
+**Type Signature:**
+```typescript
+const throttleByFrame: <TCallbackFn extends AnyFunction>(
+  callbackFn: TCallbackFn
+) => ThrottledByFrameFn<TCallbackFn>
+```
+
+<Note>
+  `throttleByFrame` is ideal for scroll animations and visual updates as it aligns with the browser's rendering pipeline (~60fps).
+</Note>
+
+---
+
+### Throttle Comparison
+
+<Tabs>
+  <Tab title="throttleByTimeout">
+    **Best for:**
+    - API calls
+    - Analytics tracking
+    - Save operations
+    
+    **Characteristics:**
+    - Uses setTimeout
+    - Guarantees minimum delay between executions
+    - Can be cancelled
+  </Tab>
+  
+  <Tab title="throttleByTime">
+    **Best for:**
+    - High-frequency events (mousemove, touchmove)
+    - Performance-critical operations
+    - When you don't need cancellation
+    
+    **Characteristics:**
+    - No timers (most performant)
+    - Uses Date.now() for timing
+    - Cannot be cancelled
+  </Tab>
+  
+  <Tab title="throttleByFrame">
+    **Best for:**
+    - Scroll animations
+    - Visual updates
+    - Canvas rendering
+    - Parallax effects
+    
+    **Characteristics:**
+    - Uses requestAnimationFrame
+    - Syncs with browser rendering (~60fps)
+    - Can be cancelled
+    - Smoothest visual results
+  </Tab>
+</Tabs>
+
+### Complete Examples
+
+```typescript
+import { 
+  throttleByTimeout, 
+  throttleByTime, 
+  throttleByFrame 
+} from '@zayne-labs/toolkit-core';
+
+// Infinite scroll with throttleByTimeout
+const throttledLoadMore = throttleByTimeout(async () => {
+  const nextPage = await fetchNextPage();
+  appendItems(nextPage);
+}, 1000);
+
+window.addEventListener('scroll', () => {
+  if (isNearBottom()) {
+    throttledLoadMore();
+  }
+});
+
+// Mouse tracking with throttleByTime
+const throttledTracker = throttleByTime((e: MouseEvent) => {
+  sendAnalytics({
+    x: e.clientX,
+    y: e.clientY,
+    timestamp: Date.now()
+  });
+}, 2000);
+
+document.addEventListener('mousemove', throttledTracker);
+
+// Parallax effect with throttleByFrame
+const parallaxElements = document.querySelectorAll('[data-parallax]');
+const updateParallax = throttleByFrame(() => {
+  const scrollY = window.scrollY;
+  
+  parallaxElements.forEach((el: HTMLElement) => {
+    const speed = parseFloat(el.dataset.parallax ?? '0.5');
+    el.style.transform = `translateY(${scrollY * speed}px)`;
+  });
+});
+
+window.addEventListener('scroll', updateParallax);
+```
+
+---
+
+## Promise Utilities
+
+### createPromiseWithResolvers
+
+Create a promise with externally accessible resolve/reject functions.
+
+```typescript
+import { createPromiseWithResolvers } from '@zayne-labs/toolkit-core';
+
+// Basic usage
+const { promise, resolve, reject } = createPromiseWithResolvers<string>();
+
+// Resolve from anywhere
+setTimeout(() => resolve('Success!'), 1000);
+
+await promise; // 'Success!'
+```
+
+**Type Signature:**
+```typescript
+type BasePromiseOptions = {
+  signal?: AbortSignal;
+};
+
+const createPromiseWithResolvers: <TPromise>(
+  options?: BasePromiseOptions
+) => PromiseWithResolvers<TPromise>
+```
+
+### With AbortSignal
+
+```typescript
+import { createPromiseWithResolvers } from '@zayne-labs/toolkit-core';
+
+const controller = new AbortController();
+
+const { promise, resolve } = createPromiseWithResolvers<Response>({
+  signal: controller.signal
+});
+
+// Start async operation
+fetch('/api/data')
+  .then(resolve)
+  .catch(() => {});
+
+// Abort after 5 seconds
+setTimeout(() => controller.abort(), 5000);
+
+try {
+  await promise;
+} catch (error) {
+  console.log('Request aborted or failed');
+}
+```
+
+### Advanced Example: Custom Timeout
+
+```typescript
+import { createPromiseWithResolvers } from '@zayne-labs/toolkit-core';
+
+const withTimeout = async <T>(
+  promise: Promise<T>,
+  timeoutMs: number
+): Promise<T> => {
+  const { promise: timeoutPromise, reject } = createPromiseWithResolvers<T>();
+  
+  const timeoutId = setTimeout(() => {
+    reject(new Error(`Timeout after ${timeoutMs}ms`));
+  }, timeoutMs);
+  
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+};
+
+// Usage
+try {
+  const data = await withTimeout(
+    fetch('/api/slow-endpoint'),
+    3000
+  );
+} catch (error) {
+  console.error('Request timed out');
+}
+```
+
+<Note>
+  This utility uses the native `Promise.withResolvers()` when available (modern browsers), with a polyfill fallback for older environments.
+</Note>
+
+---
+
+## Timing Utilities
+
+### waitFor
+
+Asynchronously wait for a specified duration.
+
+```typescript
+import { waitFor } from '@zayne-labs/toolkit-core';
+
+// Wait in milliseconds
+await waitFor(1000);
+console.log('1 second later');
+
+// Wait in seconds
+await waitFor({ seconds: 2 });
+console.log('2 seconds later');
+
+// Wait in milliseconds (object syntax)
+await waitFor({ milliseconds: 500 });
+console.log('500ms later');
+
+// Zero delay returns immediately
+await waitFor(0); // No wait
+await waitFor({ seconds: 0 }); // No wait
+```
+
+**Type Signature:**
+```typescript
+type Delay = 
+  | { milliseconds: number }
+  | { seconds: number };
+
+const waitFor: (
+  delay: number | Delay
+) => Promise<void> | void
+```
+
+### waitForSync
+
+Synchronously block execution for a duration (use sparingly).
+
+```typescript
+import { waitForSync } from '@zayne-labs/toolkit-core';
+
+// Blocks the thread for 1 second
+waitForSync(1000);
+console.log('This runs after 1 second of blocking');
+
+// With seconds
+waitForSync({ seconds: 0.5 });
+```
+
+<Warning>
+  `waitForSync` blocks the JavaScript thread and should be used very sparingly. It can freeze the UI and should generally be avoided in production code. Prefer `waitFor` for async waits.
+</Warning>
+
+### Practical Examples
+
+```typescript
+import { waitFor } from '@zayne-labs/toolkit-core';
+
+// Retry with exponential backoff
+const fetchWithRetry = async (url: string, maxRetries = 3) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fetch(url);
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      
+      // Wait with exponential backoff
+      await waitFor({ milliseconds: Math.pow(2, i) * 1000 });
+      console.log(`Retrying... attempt ${i + 2}`);
+    }
+  }
+};
+
+// Delayed execution
+const delayedNotification = async (message: string, delay: number) => {
+  await waitFor(delay);
+  showNotification(message);
+};
+
+await delayedNotification('Your session will expire soon', 5000);
+
+// Staggered animations
+const animateSequence = async (elements: HTMLElement[]) => {
+  for (const element of elements) {
+    element.classList.add('fade-in');
+    await waitFor(200); // 200ms between each
+  }
+};
+```
+
+---
+
+## Animation Utilities
+
+### setAnimationInterval
+
+Create smooth, frame-based intervals using requestAnimationFrame.
+
+```typescript
+import { setAnimationInterval } from '@zayne-labs/toolkit-core';
+
+const { start, stop } = setAnimationInterval(
+  () => {
+    console.log('Every 1000ms');
+    updateAnimation();
+  },
+  1000,
+  {
+    immediate: true, // Start immediately
+    once: false      // Repeat indefinitely
+  }
+);
+
+// Start the interval
+start();
+
+// Stop when done
+stop();
+```
+
+**Type Signature:**
+```typescript
+type AnimationIntervalOptions = {
+  immediate?: boolean;
+  once?: boolean;
+};
+
+const setAnimationInterval: (
+  onAnimation: () => void,
+  intervalDuration: number | null,
+  options?: AnimationIntervalOptions
+) => {
+  start: () => void;
+  stop: () => void;
+}
+```
+
+### Configuration Options
+
+<Tabs>
+  <Tab title="immediate">
+    Start the interval immediately when created.
+    
+    ```typescript
+    const { start, stop } = setAnimationInterval(
+      updateFrame,
+      16, // ~60fps
+      { immediate: true }
+    );
+    // Animation starts right away
+    ```
+  </Tab>
+  
+  <Tab title="once">
+    Execute only once (like requestAnimationTimeout).
+    
+    ```typescript
+    const { start } = setAnimationInterval(
+      showElement,
+      1000,
+      { once: true }
+    );
+    start();
+    // Executes once after 1000ms
+    ```
+  </Tab>
+</Tabs>
+
+### Advanced Examples
+
+```typescript
+import { setAnimationInterval } from '@zayne-labs/toolkit-core';
+
+// Smooth counter
+let count = 0;
+const maxCount = 100;
+
+const counter = setAnimationInterval(
+  () => {
+    count++;
+    updateDisplay(count);
+    
+    if (count >= maxCount) {
+      counter.stop();
+    }
+  },
+  50,
+  { immediate: true }
+);
+
+// Game loop
+class Game {
+  private gameLoop: ReturnType<typeof setAnimationInterval>;
+  
+  constructor() {
+    this.gameLoop = setAnimationInterval(
+      () => this.update(),
+      16 // ~60fps
+    );
+  }
+  
+  start() {
+    this.gameLoop.start();
+  }
+  
+  stop() {
+    this.gameLoop.stop();
+  }
+  
+  update() {
+    // Update game state
+    this.updatePhysics();
+    this.render();
+  }
+}
+
+// Progress indicator
+const animateProgress = (element: HTMLElement, duration: number) => {
+  let progress = 0;
+  const increment = 100 / (duration / 16); // Assuming ~60fps
+  
+  const animation = setAnimationInterval(
+    () => {
+      progress += increment;
+      element.style.width = `${Math.min(progress, 100)}%`;
+      
+      if (progress >= 100) {
+        animation.stop();
+      }
+    },
+    16,
+    { immediate: true }
+  );
+  
+  return animation;
+};
+
+const progressBar = document.querySelector('.progress');
+animateProgress(progressBar, 2000); // Animate over 2 seconds
+```
+
+<Note>
+  `setAnimationInterval` uses `requestAnimationFrame` internally, making it more efficient than `setInterval` for animations and providing smoother 60fps updates.
+</Note>
+
+---
+
+## Best Practices
+
+<Tabs>
+  <Tab title="Choosing Debounce vs Throttle">
+    **Use Debounce when:**
+    - You want to wait for user to finish an action (search, form input)
+    - The last value/call is what matters
+    - You can afford to wait for inactivity
+    
+    **Use Throttle when:**
+    - You need regular updates (scroll position, mouse tracking)
+    - You want guaranteed execution intervals
+    - Every nth execution matters, not just the last
+    
+    **Example:**
+    ```typescript
+    // Debounce for search
+    const search = debounce(query => api.search(query), 300);
+    
+    // Throttle for scroll tracking
+    const trackScroll = throttleByFrame(() => {
+      analytics.track('scroll', window.scrollY);
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Performance">
+    - Use `throttleByFrame` for visual updates (scroll, animations)
+    - Use `throttleByTime` for high-frequency events when no timers needed
+    - Use `throttleByTimeout` for API calls and operations that need precise timing
+    - Always cleanup throttled/debounced functions when components unmount
+    - Consider cancelling pending operations during navigation
+    
+    ```typescript
+    const debouncedFn = debounce(handler, 300);
+    
+    // Cleanup
+    window.addEventListener('beforeunload', () => {
+      debouncedFn.cancel();
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Error Handling">
+    - Wrap async operations in try-catch
+    - Use `createPromiseWithResolvers` with AbortSignal for cancellable operations
+    - Handle promise rejections properly
+    
+    ```typescript
+    const { promise, resolve, reject } = createPromiseWithResolvers();
+    
+    try {
+      const result = await promise;
+    } catch (error) {
+      // Handle cancellation or errors
+      console.error(error);
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Testing">
+    - Use fake timers in tests (Jest's `jest.useFakeTimers()`)
+    - Test debounce with `jest.advanceTimersByTime()`
+    - Test throttle with multiple rapid calls
+    - Test cancellation behavior
+    
+    ```typescript
+    jest.useFakeTimers();
+    
+    const fn = jest.fn();
+    const debounced = debounce(fn, 1000);
+    
+    debounced();
+    debounced();
+    
+    jest.advanceTimersByTime(1000);
+    expect(fn).toHaveBeenCalledTimes(1);
+    ```
+  </Tab>
+</Tabs>

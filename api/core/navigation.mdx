@@ -1,0 +1,384 @@
+---
+title: "Navigation"
+description: "Browser navigation utilities for managing URLs, search params, and history state."
+---
+
+## Overview
+
+The navigation utilities provide a type-safe and convenient way to work with browser navigation, URL construction, search parameters, and history management.
+
+## Import
+
+```typescript
+import { 
+  createSearchParams,
+  formatUrl,
+  pushState,
+  replaceState,
+  hardNavigate
+} from "@zayne-labs/toolkit-core";
+```
+
+## Functions
+
+### createSearchParams
+
+Creates a URLSearchParams object from various input formats.
+
+#### Signature
+
+```typescript
+function createSearchParams(
+  paramsInit?: URLSearchParamsInit
+): URLSearchParams
+```
+
+#### Parameters
+
+<ParamField path="paramsInit" type="URLSearchParamsInit">
+  Search parameters in various formats:
+  - `string`: `"key=value&foo=bar"`
+  - `[string, string][]`: `[["key", "value"], ["foo", "bar"]]`
+  - `Record<string, string | string[]>`: `{ key: "value", tags: ["a", "b"] }`
+  - `URLSearchParams`: Existing URLSearchParams instance
+</ParamField>
+
+#### Return Value
+
+<ResponseField name="URLSearchParams" type="URLSearchParams">
+  A URLSearchParams object.
+</ResponseField>
+
+#### Example
+
+```typescript
+// From object
+const params1 = createSearchParams({ q: "search", page: "1" });
+
+// From string
+const params2 = createSearchParams("q=search&page=1");
+
+// From array
+const params3 = createSearchParams([["q", "search"], ["page", "1"]]);
+
+// Array values
+const params4 = createSearchParams({ 
+  tags: ["javascript", "typescript"],
+  sort: "date"
+});
+// Results in: tags=javascript&tags=typescript&sort=date
+```
+
+### formatUrl
+
+Formats a URL string or partial URL object into a complete URL with normalized components.
+
+#### Signature
+
+```typescript
+function formatUrl(
+  newURL: string | PartialURLInfo
+): FormUrlResult
+```
+
+#### Parameters
+
+<ParamField path="newURL" type="string | PartialURLInfo" required>
+  URL to format. Can be:
+  - A complete URL string
+  - A partial URL object with pathname, search, hash, etc.
+</ParamField>
+
+#### Return Value
+
+<ResponseField name="FormUrlResult" type="object">
+  <ResponseField name="urlString" type="string">
+    The complete formatted URL as a string.
+  </ResponseField>
+  
+  <ResponseField name="urlObject" type="URLInfoObject">
+    Parsed URL components:
+    - `pathname`: The path portion
+    - `search`: URLSearchParams object
+    - `searchString`: Query string
+    - `hash`: Hash fragment
+    - `state`: Optional state data
+  </ResponseField>
+</ResponseField>
+
+#### Example
+
+```typescript
+// From string
+const result1 = formatUrl("/products?category=electronics#reviews");
+console.log(result1.urlString); // Full URL
+console.log(result1.urlObject.pathname); // "/products"
+
+// From object
+const result2 = formatUrl({
+  pathname: "/products",
+  search: { category: "electronics", sort: "price" },
+  hash: "#reviews"
+});
+```
+
+### pushState
+
+Navigates to a new URL by pushing a new entry to the browser history stack.
+
+#### Signature
+
+```typescript
+function pushState(
+  url: string | PartialURLInfo,
+  options?: { state?: unknown }
+): void
+```
+
+#### Parameters
+
+<ParamField path="url" type="string | PartialURLInfo" required>
+  The URL to navigate to.
+</ParamField>
+
+<ParamField path="options" type="object">
+  <ParamField path="options.state" type="unknown">
+    State data to associate with this history entry.
+  </ParamField>
+</ParamField>
+
+#### Example
+
+```typescript
+// Navigate to new page
+pushState("/products");
+
+// Navigate with query params
+pushState({
+  pathname: "/products",
+  search: { category: "electronics" }
+});
+
+// Navigate with state
+pushState("/products", {
+  state: { scrollPosition: window.scrollY }
+});
+```
+
+### replaceState
+
+Replaces the current history entry with a new URL without creating a new history entry.
+
+#### Signature
+
+```typescript
+function replaceState(
+  url: string | PartialURLInfo,
+  options?: { state?: unknown }
+): void
+```
+
+#### Parameters
+
+Same as `pushState`.
+
+#### Example
+
+```typescript
+// Replace current URL
+replaceState("/updated-path");
+
+// Update query params without navigation
+replaceState({
+  search: { page: "2" }
+});
+```
+
+### hardNavigate
+
+Performs a full page navigation (browser reload).
+
+#### Signature
+
+```typescript
+function hardNavigate(
+  url: string | Partial<PartialURLInfo> | URL,
+  type?: "assign" | "replace"
+): void
+```
+
+#### Parameters
+
+<ParamField path="url" type="string | Partial<PartialURLInfo> | URL" required>
+  The URL to navigate to.
+</ParamField>
+
+<ParamField path="type" type="'assign' | 'replace'">
+  Navigation type:
+  - `"assign"` (default): Adds to history
+  - `"replace"`: Replaces current history entry
+</ParamField>
+
+#### Example
+
+```typescript
+// Navigate with page reload
+hardNavigate("/login");
+
+// Navigate and replace history
+hardNavigate("/home", "replace");
+```
+
+## Types
+
+### URLSearchParamsInit
+
+```typescript
+type URLSearchParamsInit =
+  | string
+  | [string, string][]
+  | Record<string, string | string[]>
+  | URLSearchParams;
+```
+
+### PartialURLInfo
+
+```typescript
+type PartialURLInfo = {
+  hash?: string;
+  pathname?: string;
+  search?: URLSearchParamsInit;
+  searchString?: string;
+  state?: unknown;
+};
+```
+
+### URLInfoObject
+
+```typescript
+type URLInfoObject = {
+  hash: string;
+  pathname: string;
+  search: URLSearchParams;
+  searchString: string;
+  state?: unknown;
+};
+```
+
+## Usage Examples
+
+### SPA Navigation
+
+```typescript
+// Navigate between pages in a SPA
+function navigateToProduct(productId: string) {
+  pushState({
+    pathname: `/products/${productId}`,
+    state: { from: window.location.pathname }
+  });
+}
+
+// Listen for navigation
+window.addEventListener("popstate", (event) => {
+  console.log("Navigated to:", location.pathname);
+  console.log("State:", event.state);
+});
+```
+
+### Search Filters
+
+```typescript
+function updateFilters(filters: Record<string, string>) {
+  replaceState({
+    search: filters
+  });
+}
+
+// Update filters without page reload
+updateFilters({ 
+  category: "electronics", 
+  price: "100-500",
+  brand: "apple"
+});
+```
+
+### Pagination
+
+```typescript
+function goToPage(page: number) {
+  const { urlObject } = formatUrl(window.location.href);
+  
+  // Preserve existing params
+  urlObject.search.set("page", String(page));
+  
+  pushState({
+    search: urlObject.search
+  });
+}
+```
+
+### Modal Navigation
+
+```typescript
+// Open modal and update URL
+function openModal(modalId: string) {
+  pushState(
+    { hash: `#modal-${modalId}` },
+    { state: { modalOpen: true } }
+  );
+}
+
+// Close modal
+function closeModal() {
+  // Remove hash
+  replaceState({ hash: "" });
+}
+```
+
+### Login Redirect
+
+```typescript
+function redirectToLogin() {
+  // Save current path for post-login redirect
+  const returnUrl = window.location.pathname + window.location.search;
+  
+  pushState(
+    { pathname: "/login", search: { returnUrl } },
+    { state: { from: returnUrl } }
+  );
+}
+
+function handleLoginSuccess() {
+  const params = new URLSearchParams(window.location.search);
+  const returnUrl = params.get("returnUrl") || "/";
+  
+  hardNavigate(returnUrl);
+}
+```
+
+### Building URLs
+
+```typescript
+// Build complex URLs
+const { urlString } = formatUrl({
+  pathname: "/api/search",
+  search: {
+    q: "laptop",
+    filters: ["brand:dell", "price:500-1000"],
+    sort: "price"
+  },
+  hash: "#results"
+});
+
+console.log(urlString);
+// https://example.com/api/search?q=laptop&filters=brand:dell&filters=price:500-1000&sort=price#results
+```
+
+## Notes
+
+- All navigation functions work with the current origin by default
+- `pushState` and `replaceState` use the History API (no page reload)
+- `hardNavigate` causes a full page reload
+- Search params with array values are repeated: `tags: ["a", "b"]` becomes `tags=a&tags=b`
+- Hash and pathname default to current values if not specified
+- State is preserved in history and accessible via `popstate` events

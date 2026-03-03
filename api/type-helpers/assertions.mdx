@@ -1,0 +1,320 @@
+---
+title: "Assertions"
+description: "Runtime assertion functions for TypeScript type safety and validation"
+---
+
+Assertion functions throw errors when conditions are not met, providing runtime type safety and validation.
+
+## AssertionError
+
+Custom error class for assertion failures.
+
+```typescript language="typescript"
+class AssertionError extends Error {
+  name = "AssertionError";
+  
+  constructor(message?: string);
+}
+```
+
+<ParamField path="message" type="string" optional>
+  Optional error message
+</ParamField>
+
+### Example
+
+```typescript language="typescript"
+try {
+  throw new AssertionError("Value must be positive");
+} catch (error) {
+  if (error instanceof AssertionError) {
+    console.log(error.name); // "AssertionError"
+    console.log(error.message); // "Assertion failed: Value must be positive"
+  }
+}
+```
+
+## assert
+
+General-purpose assertion function with overloads for boolean conditions and nullable values.
+
+```typescript language="typescript"
+function assert(
+  condition: boolean,
+  messageOrOptions?: string | AssertOptions
+): asserts condition;
+
+function assert<TValue>(
+  value: TValue,
+  messageOrOptions?: string | AssertOptions
+): asserts value is NonNullable<TValue>;
+```
+
+<ParamField path="condition" type="boolean">
+  The condition to assert (first overload)
+</ParamField>
+
+<ParamField path="value" type="TValue">
+  The value to check for null/undefined (second overload)
+</ParamField>
+
+<ParamField path="messageOrOptions" type="string | AssertOptions" optional>
+  Error message or options object with message property
+</ParamField>
+
+### AssertOptions
+
+```typescript language="typescript"
+type AssertOptions = {
+  message: string;
+};
+```
+
+### Example: Boolean Assertion
+
+```typescript language="typescript"
+function divide(a: number, b: number): number {
+  assert(b !== 0, "Divisor cannot be zero");
+  return a / b;
+}
+
+divide(10, 2); // OK: returns 5
+divide(10, 0); // Throws: AssertionError: Assertion failed: Divisor cannot be zero
+```
+
+### Example: Nullable Value Assertion
+
+```typescript language="typescript"
+function processUser(user: User | null | undefined) {
+  assert(user, "User must be defined");
+  
+  // TypeScript now knows user is User (not null or undefined)
+  console.log(user.name); // OK
+  console.log(user.email); // OK
+}
+```
+
+### Example: With Options Object
+
+```typescript language="typescript"
+function validateAge(age: number | undefined) {
+  assert(age, {
+    message: "Age is required for registration",
+  });
+  
+  // age is now number (not undefined)
+  console.log(age.toFixed(0)); // OK
+}
+```
+
+### Example: Type Narrowing
+
+```typescript language="typescript"
+type Response = { success: true; data: string } | { success: false; error: string };
+
+function handleResponse(response: Response) {
+  assert(response.success, "Request failed");
+  
+  // TypeScript narrows response to { success: true; data: string }
+  console.log(response.data); // OK
+  // console.log(response.error); // Error: Property 'error' does not exist
+}
+```
+
+## assertDefined
+
+Asserts that a value is not `null` or `undefined`.
+
+```typescript language="typescript"
+function assertDefined<TValue>(value: TValue): NonNullable<TValue>
+```
+
+<ParamField path="value" type="TValue">
+  The value to check
+</ParamField>
+
+**Returns:** The value if it's not null or undefined
+
+**Throws:** `AssertionError` if the value is null or undefined
+
+### Example
+
+```typescript language="typescript"
+function getUserName(user: { name: string } | null | undefined): string {
+  const validUser = assertDefined(user);
+  
+  // validUser is now { name: string } (not null or undefined)
+  return validUser.name;
+}
+
+getUserName({ name: "Alice" }); // OK: returns "Alice"
+getUserName(null); // Throws: AssertionError: Assertion failed: The value passed is "null!"
+getUserName(undefined); // Throws: AssertionError: Assertion failed: The value passed is "undefined!"
+```
+
+### Example: Array Item Access
+
+```typescript language="typescript"
+const users = [{ name: "Alice" }, { name: "Bob" }];
+
+const firstUser = assertDefined(users[0]);
+console.log(firstUser.name); // OK
+
+const missingUser = assertDefined(users[10]); // Throws AssertionError
+```
+
+### Example: Optional Chaining
+
+```typescript language="typescript"
+type Config = {
+  api?: {
+    endpoint?: string;
+  };
+};
+
+function getEndpoint(config: Config): string {
+  const endpoint = assertDefined(config.api?.endpoint);
+  return endpoint; // endpoint is string (not undefined)
+}
+```
+
+## assertENV
+
+Asserts that an environment variable is defined. Useful for validating required environment variables at startup.
+
+```typescript language="typescript"
+function assertENV(
+  variable: string | undefined,
+  message?: string
+): string
+```
+
+<ParamField path="variable" type="string | undefined">
+  The environment variable value to check
+</ParamField>
+
+<ParamField path="message" type="string" optional>
+  Custom error message
+</ParamField>
+
+**Returns:** The environment variable value as a string
+
+**Throws:** `AssertionError` if the variable is undefined
+
+### Example: Basic Usage
+
+```typescript language="typescript"
+const apiKey = assertENV(
+  process.env.API_KEY,
+  "API_KEY environment variable is required"
+);
+
+// apiKey is now string (not undefined)
+console.log(apiKey.length); // OK
+```
+
+### Example: Configuration Validation
+
+```typescript language="typescript"
+const config = {
+  apiUrl: assertENV(process.env.API_URL, "API_URL is required"),
+  apiKey: assertENV(process.env.API_KEY, "API_KEY is required"),
+  port: assertENV(process.env.PORT, "PORT is required"),
+};
+
+// All config values are guaranteed to be strings
+fetch(config.apiUrl, {
+  headers: {
+    Authorization: `Bearer ${config.apiKey}`,
+  },
+});
+```
+
+### Example: Startup Validation
+
+```typescript language="typescript"
+function validateEnvironment() {
+  const requiredVars = [
+    ["DATABASE_URL", "Database connection string is required"],
+    ["JWT_SECRET", "JWT secret is required for authentication"],
+    ["REDIS_URL", "Redis URL is required for caching"],
+  ] as const;
+
+  for (const [key, message] of requiredVars) {
+    assertENV(process.env[key], message);
+  }
+}
+
+// Call at application startup
+validateEnvironment();
+```
+
+### Example: Type-Safe Environment Access
+
+```typescript language="typescript"
+class AppConfig {
+  readonly databaseUrl: string;
+  readonly jwtSecret: string;
+  readonly nodeEnv: string;
+
+  constructor() {
+    this.databaseUrl = assertENV(
+      process.env.DATABASE_URL,
+      "DATABASE_URL must be set"
+    );
+    this.jwtSecret = assertENV(
+      process.env.JWT_SECRET,
+      "JWT_SECRET must be set"
+    );
+    this.nodeEnv = assertENV(
+      process.env.NODE_ENV,
+      "NODE_ENV must be set"
+    );
+  }
+}
+
+const config = new AppConfig();
+// All properties are guaranteed to be strings
+```
+
+## Common Patterns
+
+### Combining Assertions
+
+```typescript language="typescript"
+function createUser(name: string | undefined, email: string | undefined) {
+  assert(name, "Name is required");
+  assert(email, "Email is required");
+  assert(email.includes("@"), "Email must be valid");
+  
+  return { name, email };
+}
+```
+
+### API Response Validation
+
+```typescript language="typescript"
+async function fetchUser(id: string) {
+  const response = await fetch(`/api/users/${id}`);
+  const data = await response.json();
+  
+  assert(response.ok, `Failed to fetch user: ${response.statusText}`);
+  assert(data.id, "User ID is missing from response");
+  assert(data.name, "User name is missing from response");
+  
+  return data;
+}
+```
+
+### Guard Clauses
+
+```typescript language="typescript"
+function processOrder(order: Order | null) {
+  assert(order, "Order not found");
+  assert(order.items.length > 0, "Order must have at least one item");
+  assert(order.total > 0, "Order total must be positive");
+  
+  // Process order with guaranteed valid state
+  return submitOrder(order);
+}
+```

@@ -1,0 +1,243 @@
+---
+title: useCopyToClipboard
+description: A hook for copying text and other data to the clipboard with status tracking
+---
+
+## Overview
+
+`useCopyToClipboard` is a hook that provides a simple API for copying content to the clipboard. It supports text, images, and other clipboard items, with automatic status tracking and timeout handling.
+
+## Import
+
+```tsx
+import { useCopyToClipboard } from "@zayne-labs/toolkit-react";
+```
+
+## Signature
+
+```typescript
+const useCopyToClipboard = (
+  options?: CopyToClipboardOptions & { timeout?: number }
+) => {
+  handleCopy: (valueToCopy: AllowedClipboardItems) => void;
+  hasCopied: boolean;
+  value: AllowedClipboardItems;
+  setValue: (value: AllowedClipboardItems) => void;
+}
+```
+
+## Parameters
+
+<ParamField path="options" type="CopyToClipboardOptions & { timeout?: number }">
+  Configuration options for clipboard copying.
+  
+  <ParamField path="options.timeout" type="number" default="1500">
+    Duration in milliseconds before `hasCopied` resets to `false`.
+  </ParamField>
+  
+  <ParamField path="options.mimeType" type="string">
+    MIME type for the clipboard content (e.g., "text/plain", "text/html").
+  </ParamField>
+  
+  <ParamField path="options.onSuccess" type="() => void">
+    Callback fired when the copy operation succeeds.
+  </ParamField>
+  
+  <ParamField path="options.onError" type="(error: Error) => void">
+    Callback fired when the copy operation fails.
+  </ParamField>
+  
+  <ParamField path="options.onCopied" type="() => void">
+    Callback fired after the copy operation completes (success or failure).
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="handleCopy" type="(valueToCopy: AllowedClipboardItems) => void">
+  Function to copy a value to the clipboard. Accepts strings, Blob objects, or other clipboard-compatible items.
+</ResponseField>
+
+<ResponseField name="hasCopied" type="boolean">
+  Whether content was recently copied. Automatically resets to `false` after the timeout duration.
+</ResponseField>
+
+<ResponseField name="value" type="AllowedClipboardItems">
+  The last value that was copied to the clipboard.
+</ResponseField>
+
+<ResponseField name="setValue" type="(value: AllowedClipboardItems) => void">
+  Function to manually set the value state without copying to clipboard.
+</ResponseField>
+
+## Usage
+
+### Basic Text Copy
+
+```tsx
+import { useCopyToClipboard } from "@zayne-labs/toolkit-react";
+
+function CopyButton() {
+  const { handleCopy, hasCopied } = useCopyToClipboard();
+
+  return (
+    <button onClick={() => handleCopy("Hello, World!")}>
+      {hasCopied ? "Copied!" : "Copy Text"}
+    </button>
+  );
+}
+```
+
+### Copy Code Snippet
+
+```tsx
+import { useCopyToClipboard } from "@zayne-labs/toolkit-react";
+
+function CodeBlock({ code }: { code: string }) {
+  const { handleCopy, hasCopied } = useCopyToClipboard({
+    timeout: 2000, // Reset after 2 seconds
+  });
+
+  return (
+    <div className="code-block">
+      <pre>
+        <code>{code}</code>
+      </pre>
+      <button onClick={() => handleCopy(code)}>
+        {hasCopied ? "✓ Copied" : "Copy Code"}
+      </button>
+    </div>
+  );
+}
+```
+
+### Copy with Callbacks
+
+```tsx
+import { useCopyToClipboard } from "@zayne-labs/toolkit-react";
+import { useState } from "react";
+
+function CopyWithFeedback() {
+  const [message, setMessage] = useState("");
+  
+  const { handleCopy, hasCopied } = useCopyToClipboard({
+    onSuccess: () => setMessage("Successfully copied!"),
+    onError: (error) => setMessage(`Failed: ${error.message}`),
+  });
+
+  return (
+    <div>
+      <button onClick={() => handleCopy("Copy me!")}>
+        {hasCopied ? "Copied" : "Copy"}
+      </button>
+      {message && <p>{message}</p>}
+    </div>
+  );
+}
+```
+
+### Copy Dynamic Content
+
+```tsx
+import { useCopyToClipboard } from "@zayne-labs/toolkit-react";
+
+function ShareLink({ url }: { url: string }) {
+  const { handleCopy, hasCopied, value } = useCopyToClipboard();
+
+  return (
+    <div>
+      <input type="text" value={url} readOnly />
+      <button onClick={() => handleCopy(url)}>
+        {hasCopied ? "Copied!" : "Copy Link"}
+      </button>
+      {value && <p>Last copied: {value}</p>}
+    </div>
+  );
+}
+```
+
+### Copy Multiple Items
+
+```tsx
+import { useCopyToClipboard } from "@zayne-labs/toolkit-react";
+
+function ContactInfo() {
+  const { handleCopy, hasCopied, value } = useCopyToClipboard({
+    timeout: 3000,
+  });
+
+  const email = "user@example.com";
+  const phone = "+1-234-567-8900";
+
+  return (
+    <div>
+      <div>
+        <span>Email: {email}</span>
+        <button onClick={() => handleCopy(email)}>
+          {hasCopied && value === email ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      
+      <div>
+        <span>Phone: {phone}</span>
+        <button onClick={() => handleCopy(phone)}>
+          {hasCopied && value === phone ? "Copied!" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+### Copy with Custom MIME Type
+
+```tsx
+import { useCopyToClipboard } from "@zayne-labs/toolkit-react";
+
+function CopyHTML() {
+  const { handleCopy, hasCopied } = useCopyToClipboard({
+    mimeType: "text/html",
+  });
+
+  const htmlContent = "<strong>Bold text</strong>";
+
+  return (
+    <button onClick={() => handleCopy(htmlContent)}>
+      {hasCopied ? "Copied HTML!" : "Copy as HTML"}
+    </button>
+  );
+}
+```
+
+### Advanced: Copy with Notification
+
+```tsx
+import { useCopyToClipboard } from "@zayne-labs/toolkit-react";
+
+function CopyWithToast() {
+  const { handleCopy } = useCopyToClipboard({
+    onSuccess: () => {
+      // Trigger your toast notification system
+      toast.success("Copied to clipboard!");
+    },
+    onError: (error) => {
+      toast.error(`Failed to copy: ${error.message}`);
+    },
+  });
+
+  return (
+    <button onClick={() => handleCopy("Important data")}>
+      Copy Data
+    </button>
+  );
+}
+```
+
+## Notes
+
+- The `hasCopied` state automatically resets to `false` after the specified timeout
+- Timeout is cleared on component unmount to prevent memory leaks
+- All callback functions are kept stable using `useCallbackRef`
+- Built on top of the `copyToClipboard` utility from `@zayne-labs/toolkit-core`
+- Supports copying various data types including text, HTML, and binary data (via Blob)
+- The Clipboard API requires a secure context (HTTPS or localhost)

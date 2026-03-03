@@ -1,0 +1,266 @@
+---
+title: useComposeRefs
+description: A hook for merging multiple React refs into a single ref callback
+---
+
+## Overview
+
+`useComposeRefs` is a utility hook that combines multiple refs into a single ref callback. This is useful when you need to attach multiple refs to a single element, such as forwarding a ref while also maintaining an internal ref.
+
+## Import
+
+```tsx
+import { useComposeRefs } from "@zayne-labs/toolkit-react";
+```
+
+## Signature
+
+```typescript
+const useComposeRefs = <TRef extends HTMLElement>(
+  ...refs: Array<PossibleRef<TRef>>
+) => React.RefCallback<TRef>
+```
+
+## Parameters
+
+<ParamField path="...refs" type="Array<PossibleRef<TRef>>" required>
+  Any number of refs to merge. Each ref can be:
+  - A `RefObject` created by `useRef` or `createRef`
+  - A callback ref function
+  - `undefined` or `null` (will be safely ignored)
+</ParamField>
+
+## Return Value
+
+<ResponseField name="mergedRef" type="React.RefCallback<TRef>">
+  A callback ref that, when attached to an element, sets all provided refs to that element.
+  Returns a cleanup function that sets all refs to `null` when the element unmounts.
+</ResponseField>
+
+## Usage
+
+### Basic Ref Composition
+
+```tsx
+import { useComposeRefs } from "@zayne-labs/toolkit-react";
+import { useRef } from "react";
+
+function ComposedRefExample() {
+  const internalRef = useRef<HTMLDivElement>(null);
+  const callbackRef = (node: HTMLDivElement | null) => {
+    console.log("Element:", node);
+  };
+  
+  const mergedRef = useComposeRefs(internalRef, callbackRef);
+
+  return <div ref={mergedRef}>Both refs are set!</div>;
+}
+```
+
+### Forwarding Refs with Internal Ref
+
+```tsx
+import { useComposeRefs } from "@zayne-labs/toolkit-react";
+import { forwardRef, useRef, useEffect } from "react";
+
+type InputProps = {
+  autoFocus?: boolean;
+};
+
+const CustomInput = forwardRef<HTMLInputElement, InputProps>(
+  ({ autoFocus }, forwardedRef) => {
+    const internalRef = useRef<HTMLInputElement>(null);
+    const mergedRef = useComposeRefs(forwardedRef, internalRef);
+
+    useEffect(() => {
+      if (autoFocus && internalRef.current) {
+        internalRef.current.focus();
+      }
+    }, [autoFocus]);
+
+    return <input ref={mergedRef} />;
+  }
+);
+
+// Usage
+function App() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  return (
+    <div>
+      <CustomInput ref={inputRef} autoFocus />
+      <button onClick={() => inputRef.current?.focus()}>
+        Focus Input
+      </button>
+    </div>
+  );
+}
+```
+
+### Multiple Callback Refs
+
+```tsx
+import { useComposeRefs } from "@zayne-labs/toolkit-react";
+
+function MultipleCallbacks() {
+  const logRef = (node: HTMLDivElement | null) => {
+    console.log("Element mounted:", node);
+  };
+  
+  const measureRef = (node: HTMLDivElement | null) => {
+    if (node) {
+      console.log("Width:", node.offsetWidth);
+      console.log("Height:", node.offsetHeight);
+    }
+  };
+  
+  const mergedRef = useComposeRefs(logRef, measureRef);
+
+  return (
+    <div ref={mergedRef} style={{ width: 200, height: 100 }}>
+      Check console for measurements
+    </div>
+  );
+}
+```
+
+### With Animation Library
+
+```tsx
+import { useComposeRefs } from "@zayne-labs/toolkit-react";
+import { useRef, useEffect } from "react";
+
+function AnimatedBox() {
+  const animationRef = useRef<HTMLDivElement>(null);
+  
+  const gsapRef = (node: HTMLDivElement | null) => {
+    if (node) {
+      // Initialize GSAP animation
+      gsap.to(node, { rotation: 360, duration: 2 });
+    }
+  };
+  
+  const mergedRef = useComposeRefs(animationRef, gsapRef);
+
+  return (
+    <div ref={mergedRef} className="box">
+      Animated Box
+    </div>
+  );
+}
+```
+
+### Combining Three or More Refs
+
+```tsx
+import { useComposeRefs } from "@zayne-labs/toolkit-react";
+import { forwardRef, useRef } from "react";
+
+type VideoPlayerProps = {
+  onReady?: (element: HTMLVideoElement) => void;
+};
+
+const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
+  ({ onReady }, forwardedRef) => {
+    const internalRef = useRef<HTMLVideoElement>(null);
+    const metricsRef = useRef<HTMLVideoElement>(null);
+    
+    const readyCallbackRef = (node: HTMLVideoElement | null) => {
+      if (node && onReady) {
+        onReady(node);
+      }
+    };
+    
+    // Compose all refs together
+    const mergedRef = useComposeRefs(
+      forwardedRef,
+      internalRef,
+      metricsRef,
+      readyCallbackRef
+    );
+
+    return (
+      <video ref={mergedRef} controls>
+        <source src="video.mp4" type="video/mp4" />
+      </video>
+    );
+  }
+);
+```
+
+### With Intersection Observer
+
+```tsx
+import { useComposeRefs } from "@zayne-labs/toolkit-react";
+import { useRef, useState, useEffect } from "react";
+
+function LazyImage({ src, alt }: { src: string; alt: string }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+  
+  const observerRef = (node: HTMLImageElement | null) => {
+    if (node) {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      });
+      observer.observe(node);
+    }
+  };
+  
+  const mergedRef = useComposeRefs(imgRef, observerRef);
+
+  return (
+    <img
+      ref={mergedRef}
+      src={isVisible ? src : "placeholder.jpg"}
+      alt={alt}
+    />
+  );
+}
+```
+
+### Optional Refs (Conditional)
+
+```tsx
+import { useComposeRefs } from "@zayne-labs/toolkit-react";
+import { useRef } from "react";
+
+function ConditionalRefs({ enableTracking }: { enableTracking: boolean }) {
+  const elementRef = useRef<HTMLDivElement>(null);
+  
+  const trackingRef = enableTracking
+    ? (node: HTMLDivElement | null) => {
+        console.log("Tracking element:", node);
+      }
+    : undefined;
+  
+  // undefined refs are safely ignored
+  const mergedRef = useComposeRefs(elementRef, trackingRef);
+
+  return <div ref={mergedRef}>Content</div>;
+}
+```
+
+## Type Definition
+
+```typescript
+type PossibleRef<TRef extends HTMLElement> = React.Ref<TRef> | undefined;
+```
+
+The `PossibleRef` type accepts:
+- `React.RefObject<TRef>` (from `useRef`)
+- `React.RefCallback<TRef>` (callback refs)
+- `null` or `undefined`
+
+## Notes
+
+- All refs are set when the element mounts
+- All refs are cleaned up (set to `null`) when the element unmounts
+- The merged ref is memoized and only recreates when the input refs change
+- Safely handles `undefined` and `null` refs
+- Works with both RefObject and callback refs
+- Returns a cleanup function from callback refs that gets invoked on unmount
+- Built on top of the `composeRefs` utility from the package's utils

@@ -1,0 +1,422 @@
+---
+title: "Promise Utilities"
+description: "Utilities for working with Promises including wait functions and promise resolvers."
+---
+
+## Overview
+
+Promise utilities provide convenient helpers for delaying execution, creating promises with external resolvers, and managing asynchronous operations.
+
+## Import
+
+```typescript
+import { 
+  waitFor,
+  waitForSync,
+  createPromiseWithResolvers,
+  createPromiseWithResolversPolyfill
+} from "@zayne-labs/toolkit-core";
+```
+
+## Functions
+
+### waitFor
+
+Creates a promise that resolves after a specified delay (async).
+
+#### Signature
+
+```typescript
+function waitFor(
+  delay: number | { milliseconds: number } | { seconds: number }
+): Promise<void> | undefined
+```
+
+#### Parameters
+
+<ParamField path="delay" type="number | { milliseconds: number } | { seconds: number }" required>
+  The delay duration. Can be:
+  - A number (milliseconds)
+  - An object with `milliseconds` property
+  - An object with `seconds` property
+  
+  If delay is `0`, returns `undefined` without creating a promise.
+</ParamField>
+
+#### Return Value
+
+<ResponseField name="Promise<void> | undefined" type="Promise">
+  A promise that resolves after the specified delay, or `undefined` if delay is 0.
+</ResponseField>
+
+#### Examples
+
+```typescript
+// Wait 1 second using milliseconds
+await waitFor(1000);
+
+// Wait 2 seconds using seconds object
+await waitFor({ seconds: 2 });
+
+// Wait 500ms using milliseconds object
+await waitFor({ milliseconds: 500 });
+
+// No delay - returns undefined immediately
+waitFor(0); // undefined
+await waitFor({ seconds: 0 }); // Returns immediately
+```
+
+### waitForSync
+
+Blocks execution synchronously for a specified delay (blocking).
+
+#### Signature
+
+```typescript
+function waitForSync(
+  delay: number | { milliseconds: number } | { seconds: number }
+): void
+```
+
+#### Parameters
+
+<ParamField path="delay" type="number | { milliseconds: number } | { seconds: number }" required>
+  The delay duration in the same format as `waitFor`.
+</ParamField>
+
+#### Return Value
+
+<ResponseField name="void" type="void">
+  This function blocks the main thread and returns nothing.
+</ResponseField>
+
+#### Examples
+
+```typescript
+console.log("Start");
+waitForSync(1000); // Blocks for 1 second
+console.log("End"); // Logs after 1 second
+
+waitForSync({ seconds: 2 }); // Blocks for 2 seconds
+```
+
+<Warning>
+  `waitForSync` blocks the main thread and should be used sparingly. It will freeze the UI and prevent other code from executing. Use `waitFor` instead for most cases.
+</Warning>
+
+### createPromiseWithResolvers
+
+Creates a promise with external resolve and reject functions (modern version).
+
+#### Signature
+
+```typescript
+function createPromiseWithResolvers<TPromise>(
+  options?: { signal?: AbortSignal }
+): PromiseWithResolvers<TPromise>
+```
+
+#### Parameters
+
+<ParamField path="options" type="object">
+  <ParamField path="options.signal" type="AbortSignal">
+    Optional AbortSignal that will reject the promise when aborted.
+  </ParamField>
+</ParamField>
+
+#### Return Value
+
+<ResponseField name="PromiseWithResolvers<TPromise>" type="object">
+  <ResponseField name="promise" type="Promise<TPromise>">
+    The promise instance.
+  </ResponseField>
+  
+  <ResponseField name="resolve" type="(value: TPromise | PromiseLike<TPromise>) => void">
+    Function to resolve the promise.
+  </ResponseField>
+  
+  <ResponseField name="reject" type="(reason?: unknown) => void">
+    Function to reject the promise.
+  </ResponseField>
+</ResponseField>
+
+#### Examples
+
+```typescript
+// Basic usage
+const { promise, resolve, reject } = createPromiseWithResolvers<string>();
+
+setTimeout(() => resolve("Done!"), 1000);
+
+const result = await promise; // "Done!"
+```
+
+```typescript
+// With AbortSignal
+const controller = new AbortController();
+const { promise, resolve } = createPromiseWithResolvers<number>({
+  signal: controller.signal
+});
+
+setTimeout(() => resolve(42), 2000);
+
+// Abort after 1 second
+setTimeout(() => controller.abort(), 1000);
+
+try {
+  await promise;
+} catch (error) {
+  console.log("Promise was aborted");
+}
+```
+
+### createPromiseWithResolversPolyfill
+
+Polyfill version of `createPromiseWithResolvers` for environments that don't support `Promise.withResolvers`.
+
+#### Signature
+
+```typescript
+function createPromiseWithResolversPolyfill<TPromise>(
+  options?: { signal?: AbortSignal }
+): PromiseWithResolvers<TPromise>
+```
+
+Same API as `createPromiseWithResolvers`, but manually constructs the promise with resolvers.
+
+## Usage Examples
+
+### Debounced Search
+
+```typescript
+let searchTimeout: Promise<void> | undefined;
+
+async function debouncedSearch(query: string) {
+  // Cancel previous search
+  searchTimeout = waitFor(300);
+  await searchTimeout;
+  
+  // Perform search
+  const results = await fetch(`/api/search?q=${query}`);
+  return results.json();
+}
+```
+
+### Retry with Backoff
+
+```typescript
+async function fetchWithRetry(
+  url: string, 
+  maxRetries = 3
+) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fetch(url);
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      
+      // Exponential backoff: 1s, 2s, 4s
+      await waitFor({ seconds: Math.pow(2, i) });
+    }
+  }
+}
+```
+
+### Animation Delays
+
+```typescript
+async function animateSequence() {
+  element.classList.add("fade-in");
+  await waitFor(300);
+  
+  element.classList.add("slide-up");
+  await waitFor(300);
+  
+  element.classList.add("complete");
+}
+```
+
+### Manual Promise Control
+
+```typescript
+class DataLoader {
+  private loadPromise: PromiseWithResolvers<Data> | null = null;
+  
+  startLoading() {
+    this.loadPromise = createPromiseWithResolvers<Data>();
+    return this.loadPromise.promise;
+  }
+  
+  finishLoading(data: Data) {
+    this.loadPromise?.resolve(data);
+  }
+  
+  cancelLoading(reason: string) {
+    this.loadPromise?.reject(new Error(reason));
+  }
+}
+
+const loader = new DataLoader();
+const dataPromise = loader.startLoading();
+
+// Later...
+loader.finishLoading({ id: 1, name: "Item" });
+
+const data = await dataPromise;
+```
+
+### Timeout Pattern
+
+```typescript
+async function fetchWithTimeout(
+  url: string, 
+  timeoutMs: number
+) {
+  const { promise, reject } = createPromiseWithResolvers<Response>();
+  
+  // Start the fetch
+  const fetchPromise = fetch(url);
+  
+  // Race against timeout
+  const timeoutId = setTimeout(
+    () => reject(new Error("Request timeout")),
+    timeoutMs
+  );
+  
+  try {
+    const response = await Promise.race([fetchPromise, promise]);
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+```
+
+### Event-Based Promise
+
+```typescript
+function waitForEvent<T = Event>(
+  target: EventTarget,
+  eventName: string,
+  timeout?: number
+): Promise<T> {
+  const { promise, resolve, reject } = createPromiseWithResolvers<T>();
+  
+  const handler = (event: Event) => {
+    cleanup();
+    resolve(event as T);
+  };
+  
+  const cleanup = () => {
+    target.removeEventListener(eventName, handler);
+    if (timeoutId) clearTimeout(timeoutId);
+  };
+  
+  target.addEventListener(eventName, handler, { once: true });
+  
+  const timeoutId = timeout ? setTimeout(() => {
+    cleanup();
+    reject(new Error(`Event '${eventName}' timeout`));
+  }, timeout) : undefined;
+  
+  return promise;
+}
+
+// Usage
+const clickEvent = await waitForEvent(button, "click", 5000);
+```
+
+### Polling with Delay
+
+```typescript
+async function pollUntilComplete(
+  checkFn: () => Promise<boolean>,
+  interval = 1000,
+  maxAttempts = 30
+) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const isComplete = await checkFn();
+    
+    if (isComplete) {
+      return true;
+    }
+    
+    if (i < maxAttempts - 1) {
+      await waitFor(interval);
+    }
+  }
+  
+  throw new Error("Polling timeout");
+}
+
+// Usage
+await pollUntilComplete(
+  async () => {
+    const status = await fetch("/api/status");
+    const data = await status.json();
+    return data.complete;
+  },
+  { seconds: 2 },
+  10
+);
+```
+
+### Abortable Operation
+
+```typescript
+async function abortableOperation(
+  signal: AbortSignal
+) {
+  const { promise, resolve } = createPromiseWithResolvers<string>({
+    signal
+  });
+  
+  // Simulate long operation
+  setTimeout(() => resolve("Complete"), 5000);
+  
+  return promise;
+}
+
+const controller = new AbortController();
+const operation = abortableOperation(controller.signal);
+
+// Abort after 2 seconds
+setTimeout(() => controller.abort(), 2000);
+
+try {
+  await operation;
+} catch (error) {
+  console.log("Operation aborted");
+}
+```
+
+## Types
+
+### Delay
+
+```typescript
+type Delay = 
+  | { milliseconds: number }
+  | { seconds: number };
+```
+
+### PromiseWithResolvers
+
+```typescript
+interface PromiseWithResolvers<T> {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+}
+```
+
+## Notes
+
+- `waitFor` is async and doesn't block the main thread - use for delays in async functions
+- `waitForSync` blocks the main thread - avoid in production, useful only for testing/debugging
+- `createPromiseWithResolvers` uses native `Promise.withResolvers()` when available
+- `createPromiseWithResolversPolyfill` provides the same API for older environments
+- AbortSignal integration allows canceling promises from outside
+- Delay of `0` in `waitFor` returns immediately without creating a promise

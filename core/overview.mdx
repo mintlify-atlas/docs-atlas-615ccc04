@@ -1,0 +1,113 @@
+---
+title: Core Package Overview
+description: A comprehensive toolkit of utilities, state management, and helpers for modern JavaScript/TypeScript applications
+---
+
+## Introduction
+
+The `@zayne-labs/toolkit-core` package provides a collection of utility functions, state management solutions, and composable helpers designed for building robust web applications. It offers zero-dependency utilities (except for type helpers) optimized for performance and developer experience.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @zayne-labs/toolkit-core
+```
+
+```bash pnpm
+pnpm add @zayne-labs/toolkit-core
+```
+
+```bash yarn
+yarn add @zayne-labs/toolkit-core
+```
+
+</CodeGroup>
+
+## Package Features
+
+The core package is organized into several categories:
+
+<CardGroup cols={2}>
+  <Card title="Async Utilities" icon="clock" href="/core/async-utilities">
+    Debouncing, throttling, promises, and timing utilities
+  </Card>
+  <Card title="State Management" icon="database" href="/core/state-management">
+    Lightweight stores for app state, localStorage, and location management
+  </Card>
+  <Card title="DOM Utilities" icon="window" href="/core/dom-utilities">
+    Browser APIs, event handling, scroll management, and more
+  </Card>
+  <Card title="General Utilities" icon="wrench" href="/core/utilities">
+    Object manipulation, JSON parsing, and helper functions
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+Here's a simple example using some of the core utilities:
+
+```typescript
+import { debounce, createStore, copyToClipboard } from '@zayne-labs/toolkit-core';
+
+// Debounce a search function
+const debouncedSearch = debounce((query: string) => {
+  console.log('Searching for:', query);
+}, 300);
+
+// Create a simple store
+const counterStore = createStore(() => ({ count: 0 }));
+
+counterStore.subscribe((state) => {
+  console.log('Count updated:', state.count);
+});
+
+counterStore.setState({ count: 1 });
+
+// Copy text to clipboard
+await copyToClipboard('Hello, World!');
+```
+
+## TypeScript Support
+
+All utilities are written in TypeScript with comprehensive type definitions. The package provides excellent type inference and safety:
+
+```typescript
+import { pickKeys, omitKeys } from '@zayne-labs/toolkit-core';
+
+const user = { id: 1, name: 'John', email: 'john@example.com', password: 'secret' };
+
+// TypeScript knows the result type
+const publicUser = omitKeys(user, ['password']); // { id: number; name: string; email: string }
+const credentials = pickKeys(user, ['email', 'password']); // { email: string; password: string }
+```
+
+<Note>
+  The toolkit-core package requires Node.js 18.x or higher and is optimized for modern JavaScript environments.
+</Note>
+
+## Bundle Size
+
+The entire package is designed to be lightweight with a size limit of ~6.5kb. Individual utilities are tree-shakeable, so you only bundle what you use.
+
+## Browser Compatibility
+
+Most utilities work in modern browsers that support ES2020+. DOM-specific utilities require a browser environment and include runtime checks for SSR compatibility.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Utilities" icon="list" href="/core/utilities">
+    Learn about object manipulation and helper functions
+  </Card>
+  <Card title="State Management" icon="database" href="/core/state-management">
+    Build reactive applications with stores
+  </Card>
+  <Card title="Async Utilities" icon="clock" href="/core/async-utilities">
+    Master debouncing, throttling, and promises
+  </Card>
+  <Card title="DOM Utilities" icon="window" href="/core/dom-utilities">
+    Work with browser APIs and DOM manipulation
+  </Card>
+</CardGroup>

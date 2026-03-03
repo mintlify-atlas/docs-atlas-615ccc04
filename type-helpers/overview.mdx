@@ -1,0 +1,148 @@
+---
+title: Type Helpers Overview
+description: TypeScript utilities for type transformations, guards, assertions, and enums
+---
+
+The Type Helpers package provides a comprehensive set of TypeScript utilities to enhance type safety and developer experience in your applications.
+
+## Installation
+
+```bash
+npm install @zayne-labs/toolkit-type-helpers
+```
+
+## What's Included
+
+<CardGroup cols={2}>
+  <Card title="Type Utilities" icon="code" href="/type-helpers/type-utilities">
+    Advanced TypeScript type transformations including Prettify, Writeable, and union manipulation utilities
+  </Card>
+  
+  <Card title="Guards & Assertions" icon="shield-check" href="/type-helpers/guards-and-assertions">
+    Runtime type guards and assertion functions for safe type narrowing
+  </Card>
+  
+  <Card title="Enum Utilities" icon="list" href="/type-helpers/enums">
+    Type-safe enum creation with powerful type inference capabilities
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+### Type Guards
+
+Use type guards to safely narrow types at runtime:
+
+```typescript
+import { isString, isNumber, isArray } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = "hello";
+
+if (isString(value)) {
+  // TypeScript knows value is string here
+  console.log(value.toUpperCase());
+}
+```
+
+### Type Utilities
+
+Transform complex types with ease:
+
+```typescript
+import type { Prettify, Writeable } from '@zayne-labs/toolkit-type-helpers';
+
+type ReadonlyUser = {
+  readonly id: string;
+  readonly name: string;
+};
+
+// Remove readonly modifiers
+type MutableUser = Writeable<ReadonlyUser>;
+// Result: { id: string; name: string; }
+```
+
+### Assertions
+
+Enforce type constraints with assertions:
+
+```typescript
+import { assert, assertDefined } from '@zayne-labs/toolkit-type-helpers';
+
+function processUser(user: User | null) {
+  assertDefined(user);
+  // TypeScript knows user is non-null here
+  console.log(user.name);
+}
+```
+
+### Enums
+
+Create type-safe enums with union extraction:
+
+```typescript
+import { defineEnum } from '@zayne-labs/toolkit-type-helpers';
+
+const Status = defineEnum({
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  COMPLETED: 'completed'
+} as const, { inferredUnionVariant: 'values' });
+
+type StatusValue = typeof Status.$inferUnion;
+// Result: 'pending' | 'active' | 'completed'
+```
+
+## Features
+
+<AccordionGroup>
+  <Accordion title="Type Transformations">
+    - **Prettify**: Flatten intersection types for better IntelliSense
+    - **Writeable**: Remove readonly modifiers (shallow or deep)
+    - **UnmaskType**: Display computed types instead of aliases
+    - **DistributiveOmit/Pick**: Omit or pick properties from union types
+  </Accordion>
+  
+  <Accordion title="Runtime Type Checking">
+    - Primitive guards: `isString`, `isNumber`, `isBoolean`, `isSymbol`
+    - Object guards: `isObject`, `isPlainObject`, `isArray`
+    - Special guards: `isPromise`, `isFunction`, `isAsyncFunction`
+    - Serialization guards: `isJSONSerializable`, `isValidJsonString`
+  </Accordion>
+  
+  <Accordion title="Assertions">
+    - `assert`: General assertion with custom messages
+    - `assertDefined`: Assert non-null/undefined values
+    - `assertENV`: Validate environment variables
+    - `AssertionError`: Custom error class for failures
+  </Accordion>
+  
+  <Accordion title="Advanced Union Types">
+    - `ExtractUnion`: Extract union types from objects or arrays
+    - `UnionDiscriminator`: Create discriminated unions
+    - `UnionToIntersection`: Convert unions to intersections
+    - `LiteralUnion`: Combine literal types with autocomplete
+  </Accordion>
+</AccordionGroup>
+
+## Package Information
+
+- **Package**: `@zayne-labs/toolkit-type-helpers`
+- **Version**: 0.12.43
+- **License**: MIT
+- **Repository**: [github.com/zayne-labs/toolkit](https://github.com/zayne-labs/toolkit)
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Type Utilities" icon="wrench" href="/type-helpers/type-utilities">
+    Explore type transformation utilities
+  </Card>
+  
+  <Card title="Guards & Assertions" icon="lock" href="/type-helpers/guards-and-assertions">
+    Learn about runtime type safety
+  </Card>
+  
+  <Card title="Enums" icon="bars" href="/type-helpers/enums">
+    Create type-safe enums
+  </Card>
+</CardGroup>

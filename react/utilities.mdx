@@ -1,0 +1,528 @@
+---
+title: React Utilities
+description: Utility functions for React component development
+---
+
+## Introduction
+
+The `@zayne-labs/toolkit-react/utils` module provides essential utilities for working with React components, props, refs, and events.
+
+## Installation
+
+Utilities are available through a separate import path:
+
+```tsx
+import { composeRefs, mergeProps, composeEventHandlers } from '@zayne-labs/toolkit-react/utils';
+```
+
+## Ref Utilities
+
+### composeRefs
+
+Combines multiple refs into a single ref callback.
+
+```tsx
+import { composeRefs } from '@zayne-labs/toolkit-react/utils';
+import { useRef } from 'react';
+
+function Component({ forwardedRef }) {
+  const localRef = useRef(null);
+  const anotherRef = useRef(null);
+  
+  return (
+    <div ref={composeRefs(localRef, forwardedRef, anotherRef)}>
+      Content
+    </div>
+  );
+}
+```
+
+<Tabs>
+  <Tab title="With forwardRef">
+    ```tsx
+    import { forwardRef } from 'react';
+    import { composeRefs } from '@zayne-labs/toolkit-react/utils';
+    
+    const Input = forwardRef<HTMLInputElement, Props>((props, ref) => {
+      const internalRef = useRef<HTMLInputElement>(null);
+      
+      useEffect(() => {
+        // Use internalRef for internal logic
+        internalRef.current?.focus();
+      }, []);
+      
+      return (
+        <input
+          ref={composeRefs(ref, internalRef)}
+          {...props}
+        />
+      );
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Multiple Refs">
+    ```tsx
+    function MultiRefComponent() {
+      const ref1 = useRef(null);
+      const ref2 = useRef(null);
+      const ref3 = useRef(null);
+      
+      // All refs will be populated with the same element
+      return (
+        <div ref={composeRefs(ref1, ref2, ref3)}>
+          All three refs point to this div
+        </div>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Callback Refs">
+    ```tsx
+    function Component() {
+      const objRef = useRef(null);
+      
+      const callbackRef = useCallback((node: HTMLElement | null) => {
+        console.log('Element:', node);
+      }, []);
+      
+      // Works with both object refs and callback refs
+      return <div ref={composeRefs(objRef, callbackRef)} />;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+**Type Signature:**
+```tsx
+type PossibleRef<TRef extends HTMLElement> = React.Ref<TRef> | undefined;
+
+function composeRefs<TRef extends HTMLElement>(
+  ...refs: Array<PossibleRef<TRef>>
+): RefCallback<TRef>;
+```
+
+<Note>
+  composeRefs handles both callback refs and RefObject refs automatically.
+</Note>
+
+### setRef
+
+Sets a ref value, handling both callback and object refs.
+
+```tsx
+import { setRef } from '@zayne-labs/toolkit-react/utils';
+
+function Component() {
+  const ref = useRef(null);
+  
+  useEffect(() => {
+    const element = document.getElementById('my-element');
+    setRef(ref, element);
+    
+    return () => setRef(ref, null);
+  }, []);
+  
+  return <div id="my-element" />;
+}
+```
+
+**Type Signature:**
+```tsx
+function setRef<TRef extends HTMLElement>(
+  ref: PossibleRef<TRef>,
+  node: TRef | null
+): ReturnType<RefCallback<TRef>>;
+```
+
+## Props Utilities
+
+### mergeProps
+
+Merges multiple props objects with special handling for className, style, and event handlers.
+
+```tsx
+import { mergeProps } from '@zayne-labs/toolkit-react/utils';
+
+function Component({ userProps }) {
+  const defaultProps = {
+    className: 'base-class',
+    style: { color: 'blue' },
+    onClick: () => console.log('default click')
+  };
+  
+  const enhancedProps = {
+    className: 'enhanced-class',
+    style: { fontSize: '16px' },
+    onClick: () => console.log('enhanced click')
+  };
+  
+  // Merged props:
+  // - className: 'base-class enhanced-class'
+  // - style: { color: 'blue', fontSize: '16px' }
+  // - onClick: calls enhanced click first, then default (unless prevented)
+  const merged = mergeProps(defaultProps, enhancedProps, userProps);
+  
+  return <div {...merged}>Content</div>;
+}
+```
+
+<Tabs>
+  <Tab title="Basic Merging">
+    ```tsx
+    const props1 = { id: 'first', className: 'btn' };
+    const props2 = { className: 'btn-primary', disabled: true };
+    
+    const merged = mergeProps(props1, props2);
+    // Result:
+    // {
+    //   id: 'first',
+    //   className: 'btn btn-primary',
+    //   disabled: true
+    // }
+    ```
+  </Tab>
+  
+  <Tab title="Event Handlers">
+    ```tsx
+    const props1 = {
+      onClick: (e) => {
+        console.log('First handler');
+      }
+    };
+    
+    const props2 = {
+      onClick: (e) => {
+        console.log('Second handler');
+        e.preventDefault(); // Prevents first handler from running
+      }
+    };
+    
+    const merged = mergeProps(props1, props2);
+    // When clicked:
+    // - 'Second handler' logged
+    // - 'First handler' NOT logged (prevented)
+    ```
+  </Tab>
+  
+  <Tab title="Styles">
+    ```tsx
+    const baseStyle = {
+      style: {
+        color: 'red',
+        fontSize: '14px'
+      }
+    };
+    
+    const overrideStyle = {
+      style: {
+        fontSize: '16px',
+        fontWeight: 'bold'
+      }
+    };
+    
+    const merged = mergeProps(baseStyle, overrideStyle);
+    // Result style:
+    // {
+    //   color: 'red',
+    //   fontSize: '16px',  // overridden
+    //   fontWeight: 'bold'
+    // }
+    ```
+  </Tab>
+</Tabs>
+
+**Merge Behavior:**
+
+- **Regular props**: Rightmost value wins (like `Object.assign`)
+- **className**: All classes are concatenated
+- **style**: Styles are merged, rightmost values override
+- **Event handlers**: Called in sequence (right to left), can be prevented with `preventDefault()`
+- **ref**: NOT merged (use `composeRefs` instead)
+
+**Type Signature:**
+```tsx
+function mergeProps<TProps extends Record<never, never>>(
+  ...propsObjectArray: Array<TProps | undefined>
+): UnionToIntersection<TProps>;
+```
+
+<Warning>
+  The `ref` prop is not merged by mergeProps. Use composeRefs to combine refs.
+</Warning>
+
+## Event Utilities
+
+### composeEventHandlers
+
+Composes multiple event handlers into a single handler.
+
+```tsx
+import { composeEventHandlers } from '@zayne-labs/toolkit-react/utils';
+
+function Component({ onClick, onUserClick }) {
+  const handleInternalClick = (e) => {
+    console.log('Internal click');
+  };
+  
+  const handleValidation = (e) => {
+    if (!isValid) {
+      e.preventDefault(); // Stops subsequent handlers
+      return;
+    }
+    console.log('Validation passed');
+  };
+  
+  return (
+    <button
+      onClick={composeEventHandlers(
+        onClick,
+        handleValidation,
+        handleInternalClick,
+        onUserClick
+      )}
+    >
+      Click me
+    </button>
+  );
+}
+```
+
+**Execution Order:**
+Handlers are called from right to left (last to first). If any handler calls `preventDefault()` on a SyntheticEvent, subsequent handlers are skipped.
+
+<Tabs>
+  <Tab title="Basic Composition">
+    ```tsx
+    const handler1 = () => console.log('Handler 1');
+    const handler2 = () => console.log('Handler 2');
+    const handler3 = () => console.log('Handler 3');
+    
+    const composed = composeEventHandlers(handler1, handler2, handler3);
+    
+    // When called:
+    // Handler 3
+    // Handler 2
+    // Handler 1
+    ```
+  </Tab>
+  
+  <Tab title="With Prevention">
+    ```tsx
+    const trackAnalytics = (e) => {
+      console.log('Track click');
+    };
+    
+    const validateForm = (e) => {
+      if (!isValid) {
+        e.preventDefault(); // Stop here
+        return;
+      }
+    };
+    
+    const submitForm = (e) => {
+      console.log('Submit');
+    };
+    
+    const composed = composeEventHandlers(
+      trackAnalytics,  // Always runs (last)
+      submitForm,      // Skipped if prevented
+      validateForm     // Runs first
+    );
+    ```
+  </Tab>
+</Tabs>
+
+**Type Signature:**
+```tsx
+function composeEventHandlers(
+  ...eventHandlerArray: Array<AnyFunction | undefined>
+): (event: unknown) => unknown;
+
+function composeTwoEventHandlers(
+  formerHandler: AnyFunction | undefined,
+  latterHandler: AnyFunction | undefined
+): (event: unknown) => unknown;
+```
+
+## Type Utilities
+
+### StateSetter
+
+Type for state setter functions (like React's `setState`).
+
+```tsx
+import type { StateSetter } from '@zayne-labs/toolkit-react/utils';
+
+function useCustomState<T>(initialValue: T): [T, StateSetter<T>] {
+  const [state, setState] = useState(initialValue);
+  
+  const customSetState: StateSetter<T> = (valueOrUpdater) => {
+    console.log('Setting state');
+    setState(valueOrUpdater);
+  };
+  
+  return [state, customSetState];
+}
+```
+
+### PossibleRef
+
+Type for refs that might be undefined.
+
+```tsx
+import type { PossibleRef } from '@zayne-labs/toolkit-react/utils';
+
+function Component({ externalRef }: { externalRef?: PossibleRef<HTMLDivElement> }) {
+  const internalRef = useRef<HTMLDivElement>(null);
+  
+  return <div ref={composeRefs(internalRef, externalRef)} />;
+}
+```
+
+## Slot Utilities
+
+### getSlot
+
+Extracts specific child components by type.
+
+```tsx
+import { getSlot } from '@zayne-labs/toolkit-react/utils';
+
+function Tabs({ children }) {
+  const tabList = getSlot(children, TabList);
+  const panels = getSlot(children, TabPanel);
+  
+  return (
+    <div>
+      {tabList}
+      <div className="panels">{panels}</div>
+    </div>
+  );
+}
+```
+
+### getSlotMap
+
+Creates a map of slots by component type.
+
+```tsx
+import { getSlotMap } from '@zayne-labs/toolkit-react/utils';
+
+function Form({ children }) {
+  const slots = getSlotMap(children, {
+    header: FormHeader,
+    body: FormBody,
+    footer: FormFooter
+  });
+  
+  return (
+    <form>
+      {slots.header}
+      <main>{slots.body}</main>
+      {slots.footer}
+    </form>
+  );
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use composeRefs for Multiple Refs" icon="link">
+    Always use composeRefs when you need to attach multiple refs to the same element
+  </Card>
+  
+  <Card title="Merge Props Carefully" icon="code-merge">
+    Be aware of the merge order - rightmost props override left ones
+  </Card>
+  
+  <Card title="Event Handler Order" icon="arrow-down-1-9">
+    Remember that composed event handlers execute from right to left
+  </Card>
+  
+  <Card title="Type Safety" icon="shield">
+    Use TypeScript types provided for better type inference
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Forwarding Refs with Internal Logic
+
+```tsx
+import { forwardRef } from 'react';
+import { composeRefs } from '@zayne-labs/toolkit-react/utils';
+
+const Button = forwardRef<HTMLButtonElement, ButtonProps>((props, ref) => {
+  const internalRef = useRef<HTMLButtonElement>(null);
+  
+  useEffect(() => {
+    // Internal logic using internalRef
+    internalRef.current?.focus();
+  }, []);
+  
+  return (
+    <button
+      {...props}
+      ref={composeRefs(ref, internalRef)}
+    />
+  );
+});
+```
+
+### Composable Component Props
+
+```tsx
+import { mergeProps } from '@zayne-labs/toolkit-react/utils';
+
+function useButtonProps(props: ButtonProps) {
+  const baseProps = {
+    className: 'btn',
+    role: 'button',
+    tabIndex: 0
+  };
+  
+  const variantProps = {
+    className: `btn-${props.variant}`,
+  };
+  
+  const interactionProps = {
+    onClick: handleClick,
+    onKeyDown: handleKeyDown
+  };
+  
+  return mergeProps(baseProps, variantProps, interactionProps, props);
+}
+```
+
+### Sequential Event Handling
+
+```tsx
+import { composeEventHandlers } from '@zayne-labs/toolkit-react/utils';
+
+function FormField({ onChange, onValidate }) {
+  const handleInternalChange = (e) => {
+    // Internal state updates
+    setDirty(true);
+  };
+  
+  const handleValidation = (e) => {
+    if (!validate(e.target.value)) {
+      e.preventDefault();
+      setError('Invalid input');
+    }
+  };
+  
+  return (
+    <input
+      onChange={composeEventHandlers(
+        onChange,           // User handler (called last)
+        handleInternalChange,  // Internal logic
+        handleValidation    // Validation (called first)
+      )}
+    />
+  );
+}
+```

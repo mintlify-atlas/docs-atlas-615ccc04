@@ -1,0 +1,174 @@
+---
+title: useDisclosure
+description: A hook for managing disclosure state with open/close/toggle actions and optional scroll locking
+---
+
+## Overview
+
+`useDisclosure` is a hook for managing the visibility state of UI elements like modals, drawers, dropdowns, and other disclosure widgets. It provides a complete API for opening, closing, and toggling visibility, with optional scroll locking when the element is open.
+
+## Import
+
+```tsx
+import { useDisclosure } from "@zayne-labs/toolkit-react";
+```
+
+## Signature
+
+```typescript
+const useDisclosure = (options?: DisclosureOptions) => {
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onToggle: <TValue>(value?: TValue) => void;
+}
+```
+
+## Parameters
+
+<ParamField path="options" type="DisclosureOptions">
+  Configuration options for the disclosure behavior.
+  
+  <ParamField path="options.hasScrollControl" type="boolean" default="false">
+    Whether to lock/unlock page scrolling when the disclosure opens/closes. Useful for modals and drawers.
+  </ParamField>
+  
+  <ParamField path="options.initialState" type="boolean | (() => boolean)" default="false">
+    The initial open state. Can be a boolean or a function that returns a boolean.
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+Returns an object with the following properties:
+
+<ResponseField name="isOpen" type="boolean">
+  The current open/closed state of the disclosure.
+</ResponseField>
+
+<ResponseField name="onOpen" type="() => void">
+  Function to open the disclosure. If `hasScrollControl` is enabled, also locks page scrolling.
+</ResponseField>
+
+<ResponseField name="onClose" type="() => void">
+  Function to close the disclosure. If `hasScrollControl` is enabled, also unlocks page scrolling.
+</ResponseField>
+
+<ResponseField name="onToggle" type="<TValue>(value?: TValue) => void">
+  Function to toggle the disclosure state:
+  - When called with no arguments: toggles between open and closed
+  - When called with a boolean: sets the state to that boolean value
+  - Manages scroll locking if `hasScrollControl` is enabled
+</ResponseField>
+
+## Usage
+
+### Basic Modal
+
+```tsx
+import { useDisclosure } from "@zayne-labs/toolkit-react";
+
+function ModalExample() {
+  const { isOpen, onOpen, onClose } = useDisclosure();
+
+  return (
+    <div>
+      <button onClick={onOpen}>Open Modal</button>
+      
+      {isOpen && (
+        <div className="modal">
+          <div className="modal-content">
+            <h2>Modal Title</h2>
+            <p>Modal content goes here</p>
+            <button onClick={onClose}>Close</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Modal with Scroll Locking
+
+```tsx
+import { useDisclosure } from "@zayne-labs/toolkit-react";
+
+function ScrollLockModalExample() {
+  const { isOpen, onOpen, onClose } = useDisclosure({
+    hasScrollControl: true,
+  });
+
+  return (
+    <div>
+      <button onClick={onOpen}>Open Modal</button>
+      
+      {isOpen && (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Modal with Scroll Lock</h2>
+            <p>The page scroll is locked while this modal is open</p>
+            <button onClick={onClose}>Close</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Dropdown with Toggle
+
+```tsx
+import { useDisclosure } from "@zayne-labs/toolkit-react";
+
+function DropdownExample() {
+  const { isOpen, onToggle } = useDisclosure();
+
+  return (
+    <div className="dropdown">
+      <button onClick={() => onToggle()}>
+        Menu {isOpen ? "▲" : "▼"}
+      </button>
+      
+      {isOpen && (
+        <ul className="dropdown-menu">
+          <li>Item 1</li>
+          <li>Item 2</li>
+          <li>Item 3</li>
+        </ul>
+      )}
+    </div>
+  );
+}
+```
+
+### Initially Open State
+
+```tsx
+import { useDisclosure } from "@zayne-labs/toolkit-react";
+
+function InitiallyOpenExample() {
+  const { isOpen, onClose } = useDisclosure({
+    initialState: true,
+  });
+
+  return (
+    <div>
+      {isOpen && (
+        <div className="banner">
+          <p>Welcome! This banner is shown by default.</p>
+          <button onClick={onClose}>Dismiss</button>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Notes
+
+- All callback functions (`onOpen`, `onClose`, `onToggle`) are memoized for stable references
+- The returned API object is memoized and only updates when `isOpen` changes
+- When `hasScrollControl` is enabled, the hook uses the `lockScroll` utility from `@zayne-labs/toolkit-core`
+- Built on top of the `useToggle` hook for state management

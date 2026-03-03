@@ -1,0 +1,111 @@
+---
+title: useToggle
+description: A hook for managing boolean state with toggle functionality
+---
+
+## Overview
+
+`useToggle` is a simple hook for managing boolean state values. It provides a convenient way to toggle between `true` and `false`, with support for explicitly setting the value.
+
+## Import
+
+```tsx
+import { useToggle } from "@zayne-labs/toolkit-react";
+```
+
+## Signature
+
+```typescript
+const useToggle = (initialValue?: boolean | (() => boolean)) => [
+  value: boolean,
+  toggleValue: <TValue>(newValue?: TValue) => void
+]
+```
+
+## Parameters
+
+<ParamField path="initialValue" type="boolean | (() => boolean)" default="false">
+  The initial state value. Can be a boolean or a function that returns a boolean for lazy initialization.
+</ParamField>
+
+## Return Value
+
+Returns a tuple with two elements:
+
+<ResponseField name="value" type="boolean">
+  The current boolean state value.
+</ResponseField>
+
+<ResponseField name="toggleValue" type="<TValue>(newValue?: TValue) => void">
+  Function to toggle or set the state:
+  - When called with no arguments: toggles the current value
+  - When called with a boolean: sets the value to that boolean
+  - When called with any other value: toggles the current value
+</ResponseField>
+
+## Usage
+
+### Basic Toggle
+
+```tsx
+import { useToggle } from "@zayne-labs/toolkit-react";
+
+function ToggleExample() {
+  const [isOpen, toggleIsOpen] = useToggle(false);
+
+  return (
+    <div>
+      <p>Modal is {isOpen ? "open" : "closed"}</p>
+      <button onClick={() => toggleIsOpen()}>
+        Toggle Modal
+      </button>
+    </div>
+  );
+}
+```
+
+### Explicit Set Value
+
+```tsx
+import { useToggle } from "@zayne-labs/toolkit-react";
+
+function ExplicitSetExample() {
+  const [isVisible, toggleVisible] = useToggle();
+
+  return (
+    <div>
+      <button onClick={() => toggleVisible(true)}>Show</button>
+      <button onClick={() => toggleVisible(false)}>Hide</button>
+      <button onClick={() => toggleVisible()}>Toggle</button>
+      
+      {isVisible && <p>Content is visible!</p>}
+    </div>
+  );
+}
+```
+
+### Lazy Initialization
+
+```tsx
+import { useToggle } from "@zayne-labs/toolkit-react";
+
+function LazyInitExample() {
+  // Initialize based on localStorage or other expensive computation
+  const [isDarkMode, toggleDarkMode] = useToggle(() => {
+    return localStorage.getItem("theme") === "dark";
+  });
+
+  return (
+    <button onClick={() => toggleDarkMode()}>
+      {isDarkMode ? "Light" : "Dark"} Mode
+    </button>
+  );
+}
+```
+
+## Notes
+
+- The toggle function is memoized with `useCallback` for stable references
+- Passing a boolean value explicitly sets the state to that value
+- Passing any non-boolean value (or no value) toggles the current state
+- Supports lazy initialization through a function for the initial value

@@ -1,0 +1,328 @@
+---
+title: Tree-Shaking
+description: Optimize your bundle size with Zayne Labs Toolkit's tree-shakeable architecture
+icon: "tree"
+---
+
+## Overview
+
+Zayne Labs Toolkit is designed from the ground up to be fully tree-shakeable, ensuring you only bundle the code you actually use. This guide explains how tree-shaking works and how to get the most out of it.
+
+## How It Works
+
+<Note>
+  All toolkit packages are marked with `"sideEffects": false`, which tells bundlers that all modules can be safely tree-shaken.
+</Note>
+
+### ESM-Only Architecture
+
+The toolkit provides only ESM (ECMAScript Module) builds, which are optimized for tree-shaking:
+
+```json
+{
+  "type": "module",
+  "sideEffects": false,
+  "exports": "./dist/esm/index.js"
+}
+```
+
+### Named Exports
+
+All functions and utilities are exported as named exports from barrel files (`index.ts`), making them individually tree-shakeable:
+
+```typescript title="packages/toolkit-core/src/index.ts"
+export * from "./checkIsDeviceMobile";
+export * from "./common-utils";
+export * from "./compare";
+export * from "./constants";
+export * from "./copyToClipboard";
+export * from "./createBatchManager";
+export * from "./createExternalStorageStore";
+// ... and more
+```
+
+## Package-Specific Exports
+
+### Core Package
+
+The core package has a single entry point:
+
+```typescript
+import { debounce, throttle, copyToClipboard } from "@zayne-labs/toolkit-core";
+```
+
+Only the imported functions will be included in your bundle.
+
+### React Package
+
+The React package uses subpath exports for even better tree-shaking:
+
+<CodeGroup>
+```typescript Hooks
+// Only hooks code is bundled
+import { useToggle, useDebounce } from "@zayne-labs/toolkit-react";
+```
+
+```typescript Utils
+// Only utils code is bundled
+import { composeRefs, mergeProps } from "@zayne-labs/toolkit-react/utils";
+```
+
+```typescript Zustand
+// Only Zustand helpers are bundled
+import { createReactStore } from "@zayne-labs/toolkit-react/zustand";
+```
+</CodeGroup>
+
+**Package exports configuration:**
+
+```json
+{
+  "exports": {
+    ".": "./dist/esm/hooks/index.js",
+    "./utils": "./dist/esm/utils/index.js",
+    "./zustand": "./dist/esm/zustand/index.js",
+    "./zustand-compat": "./dist/esm/zustand/compatible/index.js"
+  }
+}
+```
+
+### Type Helpers Package
+
+Type helpers have zero runtime overhead:
+
+```typescript
+import type { Prettify, ValueOf } from "@zayne-labs/toolkit-type-helpers";
+```
+
+Types are stripped during compilation and don't affect bundle size.
+
+## Build Configuration
+
+The toolkit uses [tsdown](https://github.com/sxzz/tsdown) for building, configured for optimal tree-shaking:
+
+```typescript title="tsdown.config.ts"
+const sharedOptions = {
+  clean: !isDevMode,
+  dts: true,              // Generate .d.ts files
+  entry: ["src/index.ts"],
+  format: ["esm"],        // ESM only
+  platform: "browser",
+  sourcemap: !isDevMode,
+  target: "esnext",
+  treeshake: true,        // Enable tree-shaking
+  tsconfig: "tsconfig.json",
+};
+```
+
+## Bundle Size Monitoring
+
+<Info>
+  The toolkit uses [size-limit](https://github.com/ai/size-limit) to monitor and enforce bundle size limits.
+</Info>
+
+### Package Size Limits
+
+**Core Package:**
+```json
+{
+  "size-limit": [
+    {
+      "path": "./src/index.ts",
+      "limit": "6.5 kb"
+    }
+  ]
+}
+```
+
+**React Package:**
+```json
+{
+  "size-limit": [
+    {
+      "path": "./src/hooks/index.ts",
+      "limit": "6.5 kb"
+    },
+    {
+      "path": "./src/utils/index.ts",
+      "limit": "3 kb"
+    },
+    {
+      "path": "./src/zustand/index.ts",
+      "limit": "2.5 kb"
+    }
+  ]
+}
+```
+
+**Type Helpers Package:**
+```json
+{
+  "size-limit": [
+    {
+      "path": "./src/index.ts",
+      "limit": "600 b"
+    }
+  ]
+}
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Use named imports">
+    Always use named imports instead of namespace imports:
+
+    ```typescript
+    // Good - Tree-shakeable
+    import { debounce, throttle } from "@zayne-labs/toolkit-core";
+
+    // Bad - Imports everything
+    import * as toolkit from "@zayne-labs/toolkit-core";
+    ```
+  </Step>
+
+  <Step title="Import from specific subpaths">
+    For the React package, import from the most specific path:
+
+    ```typescript
+    // Good - Only utils are bundled
+    import { composeRefs } from "@zayne-labs/toolkit-react/utils";
+
+    // Less optimal - Might include hooks code
+    import { composeRefs } from "@zayne-labs/toolkit-react";
+    ```
+  </Step>
+
+  <Step title="Use type imports">
+    Always use the `type` keyword for type-only imports:
+
+    ```typescript
+    // Good - Zero runtime overhead
+    import type { Prettify } from "@zayne-labs/toolkit-type-helpers";
+
+    // Unnecessary - Same result but less explicit
+    import { Prettify } from "@zayne-labs/toolkit-type-helpers";
+    ```
+  </Step>
+
+  <Step title="Install only what you need">
+    Only install the packages you actually use:
+
+    ```bash
+    # If you only need core utilities
+    pnpm add @zayne-labs/toolkit-core
+
+    # If you need React hooks
+    pnpm add @zayne-labs/toolkit-core @zayne-labs/toolkit-react
+    ```
+  </Step>
+</Steps>
+
+## Bundler Configuration
+
+### Vite
+
+Vite supports tree-shaking out of the box with ESM. No additional configuration needed:
+
+```typescript title="vite.config.ts"
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  build: {
+    minify: "esbuild",
+    target: "esnext",
+  },
+});
+```
+
+### Webpack
+
+Ensure your webpack config is optimized for tree-shaking:
+
+```javascript title="webpack.config.js"
+module.exports = {
+  mode: "production",
+  optimization: {
+    usedExports: true,
+    sideEffects: true,
+  },
+};
+```
+
+### Next.js
+
+Next.js handles tree-shaking automatically with these packages:
+
+```javascript title="next.config.js"
+module.exports = {
+  transpilePackages: [
+    "@zayne-labs/toolkit-core",
+    "@zayne-labs/toolkit-react",
+    "@zayne-labs/toolkit-type-helpers",
+  ],
+};
+```
+
+## Verifying Tree-Shaking
+
+<Accordion title="Using Bundle Analyzer">
+  Install and use a bundle analyzer to verify tree-shaking:
+
+  ```bash
+  pnpm add -D @next/bundle-analyzer
+  # or
+  pnpm add -D webpack-bundle-analyzer
+  # or
+  pnpm add -D rollup-plugin-visualizer
+  ```
+
+  Check that only the imported functions appear in your bundle.
+</Accordion>
+
+<Accordion title="Build Output Analysis">
+  Run a production build and check the output size:
+
+  ```bash
+  pnpm build
+  ```
+
+  Compare bundle sizes before and after adding toolkit packages.
+</Accordion>
+
+## Performance Tips
+
+<CardGroup cols={2}>
+  <Card title="Lazy Loading" icon="clock">
+    Dynamically import heavy utilities only when needed:
+    
+    ```typescript
+    const { createStore } = await import(
+      "@zayne-labs/toolkit-core"
+    );
+    ```
+  </Card>
+
+  <Card title="Conditional Imports" icon="code-branch">
+    Use conditional imports for platform-specific code:
+    
+    ```typescript
+    if (typeof window !== "undefined") {
+      const { checkIsDeviceMobile } = await import(
+        "@zayne-labs/toolkit-core"
+      );
+    }
+    ```
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Migration Guide" icon="arrow-right-arrow-left" href="/guides/migration">
+    Learn how to migrate between versions
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/core/debounce">
+    Explore all available functions and hooks
+  </Card>
+</CardGroup>

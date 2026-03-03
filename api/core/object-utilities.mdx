@@ -1,0 +1,348 @@
+---
+title: "Object Utilities"
+description: "Utilities for manipulating objects including omitKeys and pickKeys functions."
+---
+
+## Overview
+
+Object utilities provide type-safe methods for creating new objects with specific keys omitted or picked from source objects. Multiple implementation variants are available for different performance characteristics.
+
+## Import
+
+```typescript
+import { 
+  omitKeys,
+  omitKeysWithReduce,
+  omitKeysWithFilter,
+  omitKeysWithDelete,
+  pickKeys,
+  pickKeysWithReduce,
+  pickKeysWithFilter
+} from "@zayne-labs/toolkit-core";
+```
+
+## omitKeys
+
+Creates a new object with specified keys removed from the source object.
+
+### Signature
+
+```typescript
+function omitKeys<
+  TObject extends UnknownObject,
+  const TOmitArray extends Array<keyof TObject>
+>(
+  initialObject: TObject,
+  keysToOmit: TOmitArray
+): Omit<TObject, TOmittedKeys>
+```
+
+### Parameters
+
+<ParamField path="initialObject" type="TObject" required>
+  The source object.
+</ParamField>
+
+<ParamField path="keysToOmit" type="Array<keyof TObject>" required>
+  Array of keys to omit from the object.
+</ParamField>
+
+### Return Value
+
+<ResponseField name="Omit<TObject, TOmittedKeys>" type="object">
+  A new object with the specified keys removed. TypeScript types are automatically inferred.
+</ResponseField>
+
+### Example
+
+```typescript
+const user = {
+  id: 1,
+  name: "Alice",
+  email: "alice@example.com",
+  password: "secret",
+  role: "admin"
+};
+
+const publicUser = omitKeys(user, ["password", "email"]);
+// Type: { id: number; name: string; role: string }
+// Value: { id: 1, name: "Alice", role: "admin" }
+```
+
+## omitKeys Variants
+
+Alternative implementations with different performance characteristics:
+
+### omitKeysWithReduce
+
+Uses `Array.reduce()` internally.
+
+```typescript
+const result = omitKeysWithReduce(user, ["password"]);
+```
+
+### omitKeysWithFilter
+
+Uses `Array.filter()` and `Object.entries()`.
+
+```typescript
+const result = omitKeysWithFilter(user, ["password"]);
+```
+
+### omitKeysWithDelete
+
+Creates a shallow copy and uses `Reflect.deleteProperty()`.
+
+```typescript
+const result = omitKeysWithDelete(user, ["password"]);
+```
+
+## pickKeys
+
+Creates a new object with only the specified keys from the source object.
+
+### Signature
+
+```typescript
+function pickKeys<
+  TObject extends UnknownObject,
+  const TPickArray extends Array<keyof TObject>
+>(
+  initialObject: TObject,
+  keysToPick: TPickArray
+): Pick<TObject, TPickedKeys>
+```
+
+### Parameters
+
+<ParamField path="initialObject" type="TObject" required>
+  The source object.
+</ParamField>
+
+<ParamField path="keysToPick" type="Array<keyof TObject>" required>
+  Array of keys to pick from the object.
+</ParamField>
+
+### Return Value
+
+<ResponseField name="Pick<TObject, TPickedKeys>" type="object">
+  A new object with only the specified keys. TypeScript types are automatically inferred.
+</ResponseField>
+
+### Example
+
+```typescript
+const user = {
+  id: 1,
+  name: "Alice",
+  email: "alice@example.com",
+  password: "secret",
+  createdAt: new Date()
+};
+
+const basicInfo = pickKeys(user, ["id", "name"]);
+// Type: { id: number; name: string }
+// Value: { id: 1, name: "Alice" }
+```
+
+## pickKeys Variants
+
+Alternative implementations:
+
+### pickKeysWithReduce
+
+Uses `Array.reduce()` internally.
+
+```typescript
+const result = pickKeysWithReduce(user, ["id", "name"]);
+```
+
+### pickKeysWithFilter
+
+Uses `Array.filter()` and `Object.entries()`.
+
+```typescript
+const result = pickKeysWithFilter(user, ["id", "name"]);
+```
+
+## Usage Examples
+
+### API Response Sanitization
+
+```typescript
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  password: string;
+  salt: string;
+  role: string;
+}
+
+function sanitizeUser(user: User) {
+  // Remove sensitive fields before sending to client
+  return omitKeys(user, ["password", "salt"]);
+}
+
+const dbUser: User = {
+  id: 1,
+  username: "alice",
+  email: "alice@example.com",
+  password: "hashed_password",
+  salt: "random_salt",
+  role: "user"
+};
+
+const safeUser = sanitizeUser(dbUser);
+// Type: { id: number; username: string; email: string; role: string }
+```
+
+### Form Data Extraction
+
+```typescript
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  // ... many other fields
+  _formId: string;
+  _timestamp: number;
+}
+
+function extractUserData(formData: FormData) {
+  // Remove internal fields
+  return omitKeys(formData, ["_formId", "_timestamp"]);
+}
+```
+
+### Props Forwarding
+
+```typescript
+interface ComponentProps {
+  className?: string;
+  style?: React.CSSProperties;
+  onClick?: () => void;
+  customProp: string;
+  anotherCustomProp: number;
+}
+
+function Component(props: ComponentProps) {
+  // Extract only DOM props
+  const domProps = pickKeys(props, ["className", "style", "onClick"]);
+  
+  return <div {...domProps}>Content</div>;
+}
+```
+
+### State Updates
+
+```typescript
+interface AppState {
+  user: User;
+  theme: "light" | "dark";
+  sidebarOpen: boolean;
+  notifications: Notification[];
+}
+
+// Reset everything except user
+function resetUIState(state: AppState) {
+  const userOnly = pickKeys(state, ["user"]);
+  
+  return {
+    ...getDefaultState(),
+    ...userOnly
+  };
+}
+```
+
+### Partial Updates
+
+```typescript
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+function createProductUpdate(product: Partial<Product>) {
+  // Only allow updating certain fields
+  return pickKeys(product, ["name", "price", "stock"]);
+}
+
+const updates = createProductUpdate({
+  name: "New Name",
+  price: 99.99,
+  id: "should-not-update", // This will be ignored
+  createdAt: new Date() // This will be ignored
+});
+// Result: { name: "New Name", price: 99.99 }
+```
+
+### Comparing Objects
+
+```typescript
+function compareUsers(user1: User, user2: User) {
+  // Compare only relevant fields, ignore timestamps
+  const u1 = omitKeys(user1, ["createdAt", "updatedAt", "lastLogin"]);
+  const u2 = omitKeys(user2, ["createdAt", "updatedAt", "lastLogin"]);
+  
+  return JSON.stringify(u1) === JSON.stringify(u2);
+}
+```
+
+### Creating DTOs
+
+```typescript
+interface UserEntity {
+  id: number;
+  username: string;
+  email: string;
+  passwordHash: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+}
+
+type UserDTO = Pick<UserEntity, "id" | "username" | "email">;
+
+function toUserDTO(entity: UserEntity): UserDTO {
+  return pickKeys(entity, ["id", "username", "email"]);
+}
+```
+
+## Performance Notes
+
+- **omitKeys**: Uses a for-loop and Set lookup - generally fastest for most cases
+- **omitKeysWithReduce**: Functional style - may be slower but more readable
+- **omitKeysWithFilter**: Uses Object.entries - good for large objects
+- **omitKeysWithDelete**: Creates a copy first - use when you need a specific behavior
+
+For most use cases, the default `omitKeys` and `pickKeys` functions provide the best balance of performance and readability.
+
+## Type Safety
+
+All functions maintain full type safety:
+
+```typescript
+const obj = { a: 1, b: "string", c: true };
+
+const picked = pickKeys(obj, ["a", "c"]);
+// Type: { a: number; c: boolean }
+
+const omitted = omitKeys(obj, ["b"]);
+// Type: { a: number; c: boolean }
+
+// TypeScript error - key doesn't exist
+// pickKeys(obj, ["d"]);
+```
+
+## Notes
+
+- All functions create new objects and don't mutate the original
+- Keys are looked up using a `Set` for O(1) performance
+- Non-existent keys in the array are safely ignored
+- TypeScript provides full autocomplete and type checking for keys
+- Return types are precisely inferred - no manual type assertions needed

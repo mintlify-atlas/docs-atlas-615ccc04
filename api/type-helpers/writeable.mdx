@@ -1,0 +1,207 @@
+---
+title: "Writeable"
+description: "Type utility for removing readonly modifiers from object properties"
+---
+
+## Writeable
+
+Makes all properties in an object type writeable by removing `readonly` modifiers. Supports both shallow and deep modes, and handles special cases like arrays, tuples, functions, and unions.
+
+```typescript language="typescript"
+type Writeable<TObject, TLevel extends WriteableLevel = "shallow"> =
+  TObject extends (...args: infer TArgs) => infer TReturn
+    ? (...args: TArgs) => Writeable<TReturn, TLevel>
+    : TObject extends ArrayOrObject
+      ? {
+          -readonly [Key in keyof TObject]: TLevel extends "deep"
+            ? NonNullable<TObject[Key]> extends ArrayOrObject
+              ? Writeable<TObject[Key], "deep">
+              : TObject[Key]
+            : TObject[Key];
+        }
+      : TObject;
+```
+
+<ParamField path="TObject" type="object">
+  The object type to make writeable
+</ParamField>
+
+<ParamField path="TLevel" type="'shallow' | 'deep'" default="'shallow'">
+  The level of writeable transformation:
+  - `"shallow"`: Only removes readonly from top-level properties
+  - `"deep"`: Recursively removes readonly from all nested properties
+</ParamField>
+
+## Shallow Mode
+
+Removes `readonly` only from the top-level properties.
+
+### Example
+
+```typescript language="typescript"
+type Config = {
+  readonly apiUrl: string;
+  readonly timeout: number;
+  readonly headers: {
+    readonly "Content-Type": string;
+  };
+};
+
+type MutableConfig = Writeable<Config, "shallow">;
+// Result: {
+//   apiUrl: string;
+//   timeout: number;
+//   headers: {           // headers is now mutable
+//     readonly "Content-Type": string;  // but nested properties are still readonly
+//   };
+// }
+
+const config: MutableConfig = {
+  apiUrl: "https://api.example.com",
+  timeout: 5000,
+  headers: { "Content-Type": "application/json" },
+};
+
+// Now you can modify top-level properties
+config.apiUrl = "https://api.new.com"; // OK
+config.timeout = 3000; // OK
+config.headers = { "Content-Type": "text/plain" }; // OK
+
+// But nested properties are still readonly
+// config.headers["Content-Type"] = "text/plain"; // Error!
+```
+
+## Deep Mode
+
+Recursively removes `readonly` from all nested properties.
+
+### Example
+
+```typescript language="typescript"
+type DeepReadonlyConfig = {
+  readonly apiUrl: string;
+  readonly timeout: number;
+  readonly headers: {
+    readonly "Content-Type": string;
+    readonly Authorization: string;
+  };
+  readonly retries: readonly number[];
+};
+
+type DeepMutableConfig = Writeable<DeepReadonlyConfig, "deep">;
+// Result: {
+//   apiUrl: string;
+//   timeout: number;
+//   headers: {
+//     "Content-Type": string;
+//     Authorization: string;
+//   };
+//   retries: number[];
+// }
+
+const config: DeepMutableConfig = {
+  apiUrl: "https://api.example.com",
+  timeout: 5000,
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: "Bearer token",
+  },
+  retries: [1, 2, 3],
+};
+
+// Now you can modify everything
+config.apiUrl = "https://api.new.com"; // OK
+config.headers["Content-Type"] = "text/plain"; // OK
+config.headers.Authorization = "Bearer new-token"; // OK
+config.retries.push(4); // OK
+```
+
+## Working with Arrays
+
+Removes `readonly` from array types.
+
+### Example
+
+```typescript language="typescript"
+type ReadonlyArray = readonly string[];
+type MutableArray = Writeable<ReadonlyArray>;
+// Result: string[]
+
+const items: MutableArray = ["a", "b", "c"];
+items.push("d"); // OK
+items[0] = "x"; // OK
+```
+
+## Working with Tuples
+
+Removes `readonly` from tuple types while preserving tuple structure.
+
+### Example
+
+```typescript language="typescript"
+type ReadonlyTuple = readonly [string, number, boolean];
+type MutableTuple = Writeable<ReadonlyTuple>;
+// Result: [string, number, boolean]
+
+const tuple: MutableTuple = ["hello", 42, true];
+tuple[0] = "world"; // OK
+tuple[1] = 100; // OK
+```
+
+## Working with Functions
+
+Preserves function signatures while making return types writeable.
+
+### Example
+
+```typescript language="typescript"
+type ReadonlyGetter = () => {
+  readonly data: string;
+};
+
+type MutableGetter = Writeable<ReadonlyGetter, "deep">;
+// Result: () => { data: string }
+
+const getData: MutableGetter = () => ({ data: "test" });
+const result = getData();
+result.data = "modified"; // OK
+```
+
+## Common Use Cases
+
+### Making API Response Types Mutable
+
+```typescript language="typescript"
+type ApiResponse = {
+  readonly id: number;
+  readonly name: string;
+  readonly metadata: {
+    readonly createdAt: Date;
+    readonly updatedAt: Date;
+  };
+};
+
+// Make the entire response mutable for local state management
+type MutableResponse = Writeable<ApiResponse, "deep">;
+
+const response: MutableResponse = fetchData();
+response.name = "Updated Name"; // OK
+response.metadata.updatedAt = new Date(); // OK
+```
+
+### Converting Immutable State to Mutable
+
+```typescript language="typescript"
+type ImmutableState = {
+  readonly user: {
+    readonly id: number;
+    readonly preferences: readonly string[];
+  };
+};
+
+// Convert for draft editing
+type DraftState = Writeable<ImmutableState, "deep">;
+
+const draft: DraftState = JSON.parse(JSON.stringify(immutableState));
+draft.user.preferences.push("new-preference"); // OK
+```

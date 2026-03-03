@@ -1,0 +1,126 @@
+---
+title: React Package Overview
+description: A comprehensive collection of React hooks, utilities, and Zustand integrations for building modern applications
+---
+
+## Introduction
+
+The `@zayne-labs/toolkit-react` package provides a rich set of React hooks, utilities, and Zustand integrations designed to simplify common patterns in React development.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @zayne-labs/toolkit-react
+```
+
+```bash pnpm
+pnpm add @zayne-labs/toolkit-react
+```
+
+```bash yarn
+yarn add @zayne-labs/toolkit-react
+```
+</CodeGroup>
+
+<Note>
+  This package requires React 19.0.0 or higher as a peer dependency.
+</Note>
+
+## Package Structure
+
+The package is organized into three main modules:
+
+### Hooks (Main Export)
+
+Import hooks from the main package entry:
+
+```tsx
+import { useToggle, useDisclosure, useDebounce } from '@zayne-labs/toolkit-react';
+```
+
+### Utilities
+
+Import utilities from the `/utils` subpath:
+
+```tsx
+import { composeRefs, composeEventHandlers, mergeProps } from '@zayne-labs/toolkit-react/utils';
+```
+
+### Zustand Integrations
+
+Import Zustand helpers from the `/zustand` subpath:
+
+```tsx
+import { createReactStore, createReactStoreContext } from '@zayne-labs/toolkit-react/zustand';
+```
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="State Management Hooks" icon="toggle-on">
+    useToggle, useDisclosure, useControllable, and more for managing component state
+  </Card>
+  
+  <Card title="Performance Hooks" icon="gauge-high">
+    useDebounce, useThrottle variants for optimizing event handlers and state updates
+  </Card>
+  
+  <Card title="Storage Hooks" icon="database">
+    useStorageState for seamless localStorage/sessionStorage integration with React
+  </Card>
+  
+  <Card title="Effect Utilities" icon="wand-magic-sparkles">
+    useMountEffect, useEffectOnce, useAsyncEffect for lifecycle management
+  </Card>
+</CardGroup>
+
+## Categories
+
+### State Hooks
+- `useToggle` - Boolean state toggle
+- `useDisclosure` - Modal/drawer state with scroll control
+- `useControllableState` - Controlled/uncontrolled component pattern
+- `useStorageState` - Synced storage state
+- `useSearchParams` - URL search params management
+
+### Performance Hooks
+- `useDebouncedFn` / `useDebouncedState` - Debounced callbacks and state
+- `useThrottleByTimeout` / `useThrottleByTimer` / `useThrottleByFrame` - Throttled callbacks
+- `useCallbackRef` - Stable callback reference
+
+### Effect Hooks
+- `useMountEffect` - Run effect on mount only
+- `useUnmountEffect` - Run cleanup on unmount
+- `useEffectOnce` - Run effect exactly once (strict mode safe)
+- `useAsyncEffect` - Async effect handling
+- `useAfterMountEffect` - Run effect after initial mount
+- `useLifeCycle` - Complete lifecycle hook
+
+### Browser API Hooks
+- `useClickOutside` - Detect clicks outside elements
+- `useCopyToClipboard` - Clipboard API integration
+- `useIsHydrated` - SSR hydration detection
+- `useScrollObserver` - Scroll event observation
+
+### Advanced Hooks
+- `createCustomContext` - Type-safe context creation
+- `useComposeRefs` - Combine multiple refs
+- `useConstant` - Lazy initialization
+- `useStore` - External store subscription
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Hooks" icon="link" href="/react/hooks">
+    Browse all available hooks with examples
+  </Card>
+  
+  <Card title="Utilities" icon="wrench" href="/react/utilities">
+    Learn about React utilities and helpers
+  </Card>
+  
+  <Card title="Zustand Integration" icon="store" href="/react/zustand">
+    Integrate with Zustand state management
+  </Card>
+</CardGroup>

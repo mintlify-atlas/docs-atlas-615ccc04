@@ -1,0 +1,585 @@
+---
+title: Type Utilities
+description: Advanced TypeScript type transformation utilities for better type safety and developer experience
+---
+
+Type utilities provide powerful type-level transformations that help you manipulate and transform TypeScript types.
+
+## Core Type Utilities
+
+### Prettify
+
+Flattens intersection types to improve IntelliSense display.
+
+```typescript
+import type { Prettify } from '@zayne-labs/toolkit-type-helpers';
+
+type User = { id: string };
+type Timestamps = { createdAt: Date; updatedAt: Date };
+
+// Before: User & Timestamps (shows as intersection)
+type UserWithTimestamps = User & Timestamps;
+
+// After: Clean, flattened type
+type PrettyUser = Prettify<User & Timestamps>;
+// Result: { id: string; createdAt: Date; updatedAt: Date; }
+```
+
+<Info>
+**Type Signature**
+
+```typescript
+type Prettify<TObject> = NonNullable<unknown> & { [Key in keyof TObject]: TObject[Key] };
+```
+</Info>
+
+### DeepPrettify
+
+Recursively prettifies nested object types.
+
+```typescript
+import type { DeepPrettify } from '@zayne-labs/toolkit-type-helpers';
+
+type Config = {
+  server: { host: string } & { port: number };
+  database: { url: string } & { pool: number };
+};
+
+type PrettyConfig = DeepPrettify<Config>;
+// Result: {
+//   server: { host: string; port: number; };
+//   database: { url: string; pool: number; };
+// }
+```
+
+<Info>
+**Type Signature**
+
+```typescript
+type DeepPrettify<TObject> =
+  TObject extends (...args: infer TParams) => infer TReturn ? (...args: TParams) => TReturn
+  : TObject extends object ? NonNullable<unknown> & { [Key in keyof TObject]: DeepPrettify<TObject[Key]> }
+  : TObject;
+```
+</Info>
+
+### Writeable
+
+Removes `readonly` modifiers from object properties.
+
+<Tabs>
+  <Tab title="Shallow">
+    ```typescript
+    import type { Writeable } from '@zayne-labs/toolkit-type-helpers';
+
+    type ReadonlyUser = {
+      readonly id: string;
+      readonly profile: {
+        readonly name: string;
+      };
+    };
+
+    type MutableUser = Writeable<ReadonlyUser>;
+    // Result: {
+    //   id: string;
+    //   profile: { readonly name: string }; // nested readonly preserved
+    // }
+    ```
+  </Tab>
+  
+  <Tab title="Deep">
+    ```typescript
+    import type { Writeable } from '@zayne-labs/toolkit-type-helpers';
+
+    type ReadonlyUser = {
+      readonly id: string;
+      readonly profile: {
+        readonly name: string;
+      };
+    };
+
+    type FullyMutableUser = Writeable<ReadonlyUser, 'deep'>;
+    // Result: {
+    //   id: string;
+    //   profile: { name: string }; // nested readonly removed
+    // }
+    ```
+  </Tab>
+  
+  <Tab title="Arrays & Tuples">
+    ```typescript
+    import type { Writeable } from '@zayne-labs/toolkit-type-helpers';
+
+    // Arrays
+    type MutableArray = Writeable<readonly string[]>;
+    // Result: string[]
+
+    // Tuples
+    type MutableTuple = Writeable<readonly [string, number]>;
+    // Result: [string, number]
+
+    // Nested structures
+    type Complex = Writeable<
+      ReadonlyArray<{ readonly a: readonly string[] }>,
+      'deep'
+    >;
+    // Result: Array<{ a: string[] }>
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+**Type Signature**
+
+```typescript
+type WriteableLevel = "deep" | "shallow";
+
+type Writeable<TObject, TLevel extends WriteableLevel = "shallow"> =
+  TObject extends (...args: infer TArgs) => infer TReturn ? (...args: TArgs) => Writeable<TReturn, TLevel>
+  : TObject extends ArrayOrObject ?
+    {
+      -readonly [Key in keyof TObject]: TLevel extends "deep" ?
+        NonNullable<TObject[Key]> extends ArrayOrObject ?
+          Writeable<TObject[Key], "deep">
+        : TObject[Key]
+      : TObject[Key];
+    }
+  : TObject;
+```
+</Info>
+
+### UnmaskType
+
+Displays the computed type instead of the type alias name.
+
+```typescript
+import type { UnmaskType } from '@zayne-labs/toolkit-type-helpers';
+
+type UserId = string;
+type UserName = string;
+
+// Without UnmaskType: hover shows "UserId" (alias name)
+type User1 = { id: UserId; name: UserName };
+
+// With UnmaskType: hover shows actual structure
+type User2 = UnmaskType<{ id: UserId; name: UserName }>;
+// Displays: { id: string; name: string; }
+```
+
+<Info>
+**Type Signature**
+
+```typescript
+type UnmaskType<TType> = { _: TType }["_"];
+```
+</Info>
+
+## Utility Types
+
+### PrettyOmit & PrettyPick
+
+Omit or pick properties with prettified results.
+
+<CodeGroup>
+```typescript PrettyOmit
+import type { PrettyOmit } from '@zayne-labs/toolkit-type-helpers';
+
+type User = {
+  id: string;
+  email: string;
+  password: string;
+  createdAt: Date;
+};
+
+type PublicUser = PrettyOmit<User, 'password'>;
+// Result: { id: string; email: string; createdAt: Date; }
+```
+
+```typescript PrettyPick
+import type { PrettyPick } from '@zayne-labs/toolkit-type-helpers';
+
+type User = {
+  id: string;
+  email: string;
+  password: string;
+  createdAt: Date;
+};
+
+type UserCredentials = PrettyPick<User, 'email' | 'password'>;
+// Result: { email: string; password: string; }
+```
+</CodeGroup>
+
+### DistributiveOmit & DistributivePick
+
+Apply omit/pick operations across union types.
+
+```typescript
+import type { DistributiveOmit, DistributivePick } from '@zayne-labs/toolkit-type-helpers';
+
+type Circle = { type: 'circle'; radius: number; color: string };
+type Square = { type: 'square'; size: number; color: string };
+type Shape = Circle | Square;
+
+// Omit 'color' from each union member
+type ShapeWithoutColor = DistributiveOmit<Shape, 'color'>;
+// Result: { type: 'circle'; radius: number } | { type: 'square'; size: number }
+
+// Pick 'type' from each union member
+type ShapeType = DistributivePick<Shape, 'type'>;
+// Result: { type: 'circle' } | { type: 'square' }
+```
+
+<Info>
+**Type Signatures**
+
+```typescript
+type DistributiveOmit<TObject, TKeysToOmit extends keyof TObject> =
+  TObject extends unknown ? Omit<TObject, TKeysToOmit> : never;
+
+type DistributivePick<TObject, TKeysToPick extends keyof TObject> =
+  TObject extends unknown ? Pick<TObject, TKeysToPick> : never;
+```
+</Info>
+
+## Advanced Utilities
+
+### NonFalsy
+
+Removes falsy values from a type.
+
+```typescript
+import type { NonFalsy } from '@zayne-labs/toolkit-type-helpers';
+
+type MaybeValue = string | null | undefined | false | 0 | '';
+
+type Value = NonFalsy<MaybeValue>;
+// Result: string (all falsy types removed)
+```
+
+### Awaitable
+
+Represents a value that may or may not be wrapped in a Promise.
+
+```typescript
+import type { Awaitable } from '@zayne-labs/toolkit-type-helpers';
+
+function processData(data: Awaitable<string>) {
+  // data can be string | Promise<string>
+}
+
+processData('immediate value');
+processData(Promise.resolve('async value'));
+```
+
+### LiteralUnion
+
+Provides autocomplete for literal types while allowing arbitrary values.
+
+```typescript
+import type { LiteralUnion } from '@zayne-labs/toolkit-type-helpers';
+
+type Theme = LiteralUnion<'light' | 'dark', string>;
+
+// Autocomplete suggests 'light' and 'dark'
+// But also accepts any string
+const theme1: Theme = 'light'; // Autocompletes
+const theme2: Theme = 'custom-theme'; // Also valid
+```
+
+<Info>
+**Type Signature**
+
+```typescript
+type LiteralUnion<TUnion extends TBase, TBase = string> = 
+  TUnion | (TBase & Record<never, never>);
+```
+</Info>
+
+### AnyString & AnyNumber
+
+Provide autocomplete for specific values while accepting any string/number.
+
+<CodeGroup>
+```typescript AnyString
+import type { AnyString } from '@zayne-labs/toolkit-type-helpers';
+
+// Can be any string, but shows as 'string' in errors
+type CustomString = AnyString;
+
+const value: CustomString = 'anything';
+```
+
+```typescript AnyNumber
+import type { AnyNumber } from '@zayne-labs/toolkit-type-helpers';
+
+// Can be any number, but shows as 'number' in errors
+type CustomNumber = AnyNumber;
+
+const value: CustomNumber = 42;
+```
+</CodeGroup>
+
+## Union Type Utilities
+
+### ExtractUnion
+
+Extracts union types from objects, arrays, or sets.
+
+<Tabs>
+  <Tab title="Extract Keys">
+    ```typescript
+    import type { ExtractUnion } from '@zayne-labs/toolkit-type-helpers';
+
+    const Status = {
+      PENDING: 'pending',
+      ACTIVE: 'active',
+      COMPLETED: 'completed'
+    } as const;
+
+    type StatusKey = ExtractUnion<typeof Status, 'keys'>;
+    // Result: 'PENDING' | 'ACTIVE' | 'COMPLETED'
+    ```
+  </Tab>
+  
+  <Tab title="Extract Values">
+    ```typescript
+    import type { ExtractUnion } from '@zayne-labs/toolkit-type-helpers';
+
+    const Status = {
+      PENDING: 'pending',
+      ACTIVE: 'active',
+      COMPLETED: 'completed'
+    } as const;
+
+    type StatusValue = ExtractUnion<typeof Status, 'values'>;
+    // Result: 'pending' | 'active' | 'completed'
+    ```
+  </Tab>
+  
+  <Tab title="From Arrays">
+    ```typescript
+    import type { ExtractUnion } from '@zayne-labs/toolkit-type-helpers';
+
+    const colors = ['red', 'green', 'blue'] as const;
+
+    type Color = ExtractUnion<typeof colors>;
+    // Result: 'red' | 'green' | 'blue'
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+**Type Signature**
+
+```typescript
+type InferredUnionVariant = "keys" | "values";
+
+type ExtractUnion<TObject, TVariant extends InferredUnionVariant = "keys"> =
+  TObject extends Array<infer TUnion> | ReadonlyArray<infer TUnion> | Set<infer TUnion> ? TUnion
+  : TObject extends Record<infer TKeys, infer TValues> ?
+    TVariant extends "keys" ?
+      TKeys
+    : Prettify<Writeable<TValues, "deep">>
+  : never;
+```
+</Info>
+
+### UnionToIntersection
+
+Converts a union type to an intersection type.
+
+```typescript
+import type { UnionToIntersection } from '@zayne-labs/toolkit-type-helpers';
+
+type A = { a: string };
+type B = { b: number };
+type Union = A | B;
+
+type Intersection = UnionToIntersection<Union>;
+// Result: { a: string } & { b: number }
+```
+
+### UnionDiscriminator
+
+Creates discriminated union types from an array of types.
+
+```typescript
+import type { UnionDiscriminator } from '@zayne-labs/toolkit-type-helpers';
+
+type Success = { status: 'success'; data: string };
+type Error = { status: 'error'; error: string };
+type Loading = { status: 'loading' };
+
+type Result = UnionDiscriminator<[Success, Error, Loading]>;
+// Each type has unique properties, shared ones become discriminators
+```
+
+## Function & Callback Types
+
+### CallbackFn
+
+Type for callback functions with specific parameters.
+
+```typescript
+import type { CallbackFn } from '@zayne-labs/toolkit-type-helpers';
+
+type UserCallback = CallbackFn<User, void>;
+// Result: (...params: User[]) => void
+
+const handleUsers: UserCallback = (user1, user2, ...rest) => {
+  // All parameters are typed as User
+};
+```
+
+### SelectorFn
+
+Type for selector functions (commonly used in state management).
+
+```typescript
+import type { SelectorFn } from '@zayne-labs/toolkit-type-helpers';
+
+type AppState = {
+  user: { name: string };
+  posts: Post[];
+};
+
+const selectUserName: SelectorFn<AppState, string> = (state) => state.user.name;
+```
+
+### AnyFunction & AnyAsyncFunction
+
+Generic function types that accept any arguments.
+
+<CodeGroup>
+```typescript AnyFunction
+import type { AnyFunction } from '@zayne-labs/toolkit-type-helpers';
+
+function executeCallback(fn: AnyFunction<string>) {
+  return fn();
+}
+
+executeCallback(() => 'result');
+```
+
+```typescript AnyAsyncFunction
+import type { AnyAsyncFunction } from '@zayne-labs/toolkit-type-helpers';
+
+function executeAsync(fn: AnyAsyncFunction<string>) {
+  return fn();
+}
+
+executeAsync(async () => 'result');
+```
+</CodeGroup>
+
+## Object Types
+
+### UnknownObject
+
+Represents an object with unknown string keys.
+
+```typescript
+import type { UnknownObject } from '@zayne-labs/toolkit-type-helpers';
+
+function processObject(obj: UnknownObject) {
+  // obj is Record<string, unknown>
+}
+```
+
+### EmptyObject
+
+Represents an empty object type.
+
+```typescript
+import type { EmptyObject } from '@zayne-labs/toolkit-type-helpers';
+
+type Config = EmptyObject;
+// Result: NonNullable<unknown> (represents {})
+```
+
+## Array Types
+
+### NonEmptyArray
+
+Ensures an array has at least one element.
+
+```typescript
+import type { NonEmptyArray } from '@zayne-labs/toolkit-type-helpers';
+
+function processItems(items: NonEmptyArray<string>) {
+  const first = items[0]; // Always exists, no undefined check needed
+}
+
+// Valid
+processItems(['item1', 'item2']);
+
+// Error: Argument of type 'never[]' is not assignable
+processItems([]);
+```
+
+## Testing Utilities
+
+### Expect & Equal
+
+Utilities for type-level testing.
+
+```typescript
+import type { Expect, Equal } from '@zayne-labs/toolkit-type-helpers';
+
+type Test1 = Expect<Equal<string, string>>; // Pass
+type Test2 = Expect<Equal<string, number>>; // Fail - type error
+
+// Use in test files
+type Tests = [
+  Expect<Equal<Writeable<{ readonly a: string }>, { a: string }>>,
+  Expect<Equal<Prettify<{ a: string } & { b: number }>, { a: string; b: number }>>,
+];
+```
+
+<Note>
+These utilities are commonly used with `vitest` or other testing frameworks to validate type transformations at compile time.
+</Note>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="When to Use Prettify">
+    Use `Prettify` when:
+    - Working with complex intersection types
+    - Improving IntelliSense readability
+    - Creating library types that users will consume
+    - Debugging type issues in the IDE
+  </Accordion>
+  
+  <Accordion title="Shallow vs Deep Writeable">
+    - Use **shallow** (default) when you only need to modify top-level properties
+    - Use **deep** when working with deeply nested readonly structures
+    - Deep transformations have a performance cost at compile time
+  </Accordion>
+  
+  <Accordion title="Union Type Extraction">
+    - Use `ExtractUnion` with `'keys'` for enum-like key unions
+    - Use `ExtractUnion` with `'values'` for value unions
+    - Combine with `defineEnum` for type-safe enum patterns
+  </Accordion>
+  
+  <Accordion title="LiteralUnion for Autocomplete">
+    Use `LiteralUnion` when:
+    - You want to suggest common values but allow custom ones
+    - Building configuration objects with recommended options
+    - Creating flexible APIs with good DX
+  </Accordion>
+</AccordionGroup>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Guards & Assertions" icon="shield" href="/type-helpers/guards-and-assertions">
+    Runtime type checking utilities
+  </Card>
+  
+  <Card title="Enums" icon="list-check" href="/type-helpers/enums">
+    Type-safe enum creation
+  </Card>
+</CardGroup>

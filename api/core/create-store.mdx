@@ -1,0 +1,307 @@
+---
+title: "createStore"
+description: "A lightweight, flexible state management solution with support for plugins and batched updates."
+---
+
+## Overview
+
+`createStore` provides a powerful and type-safe way to manage application state. It supports subscriptions, batched updates, middleware plugins, and selective state updates with full TypeScript inference.
+
+## Import
+
+```typescript
+import { createStore } from "@zayne-labs/toolkit-core";
+```
+
+## Signature
+
+```typescript
+function createStore<TState, const TPlugins extends StorePlugin[]>(
+  storeStateInitializer: StoreStateInitializer<TState>,
+  storeOptions?: CreateStoreOptions<TState, TPlugins>
+): StoreApi<TState, InferPluginExtraOptions<TPlugins>>
+```
+
+## Parameters
+
+<ParamField path="storeStateInitializer" type="StoreStateInitializer<TState>" required>
+  A function that receives `set`, `get`, and `api` and returns the initial state.
+  
+  ```typescript
+  (set, get, api) => TState
+  ```
+</ParamField>
+
+<ParamField path="storeOptions" type="CreateStoreOptions<TState, TPlugins>">
+  Optional configuration object.
+  
+  <ParamField path="storeOptions.equalityFn" type="EqualityFn<TState>">
+    Custom equality function to determine if state has changed. Defaults to `Object.is`.
+  </ParamField>
+  
+  <ParamField path="storeOptions.shouldNotifySync" type="boolean">
+    If `true`, listeners are notified synchronously. If `false` (default), updates are batched.
+  </ParamField>
+  
+  <ParamField path="storeOptions.plugins" type="TPlugins">
+    Array of plugins to extend store functionality.
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="StoreApi<TState>" type="object">
+  The store API object with the following methods:
+  
+  <ResponseField name="getState" type="() => TState">
+    Returns the current state.
+  </ResponseField>
+  
+  <ResponseField name="setState" type="SetState<TState>">
+    Updates the state. Can accept partial state or a function that receives the previous state.
+    
+    ```typescript
+    // Partial update
+    setState({ count: 1 });
+    
+    // Function update
+    setState((prev) => ({ count: prev.count + 1 }));
+    
+    // Full replacement
+    setState({ count: 0 }, { shouldReplace: true });
+    ```
+  </ResponseField>
+  
+  <ResponseField name="subscribe" type="SubscribeFn<TState>">
+    Subscribes to state changes. Returns an unsubscribe function.
+    
+    ```typescript
+    const unsubscribe = subscribe((state, prevState) => {
+      console.log("State changed from", prevState, "to", state);
+    });
+    ```
+  </ResponseField>
+  
+  <ResponseField name="subscribe.withSelector" type="function">
+    Subscribe to a slice of state using a selector function.
+    
+    ```typescript
+    const unsubscribe = subscribe.withSelector(
+      (state) => state.count,
+      (count, prevCount) => {
+        console.log("Count changed from", prevCount, "to", count);
+      }
+    );
+    ```
+  </ResponseField>
+  
+  <ResponseField name="getInitialState" type="() => TState">
+    Returns the initial state that was set when the store was created.
+  </ResponseField>
+  
+  <ResponseField name="resetState" type="() => void">
+    Resets the state to the initial state.
+  </ResponseField>
+  
+  <ResponseField name="getListeners" type="() => Set<Listener<TState>>">
+    Returns the set of all active listeners.
+  </ResponseField>
+</ResponseField>
+
+## Usage Examples
+
+### Basic Counter Store
+
+```typescript
+const counterStore = createStore((set, get) => ({
+  count: 0,
+  increment: () => set({ count: get().count + 1 }),
+  decrement: () => set({ count: get().count - 1 }),
+  reset: () => set({ count: 0 })
+}));
+
+// Use the store
+counterStore.getState().increment();
+console.log(counterStore.getState().count); // 1
+```
+
+### Subscribe to Changes
+
+```typescript
+const userStore = createStore(() => ({
+  name: "Alice",
+  age: 30
+}));
+
+// Subscribe to all changes
+const unsubscribe = userStore.subscribe((state, prevState) => {
+  console.log("User updated:", state);
+});
+
+// Subscribe to specific slice
+const unsubscribeName = userStore.subscribe.withSelector(
+  (state) => state.name,
+  (name, prevName) => {
+    console.log(`Name changed from ${prevName} to ${name}`);
+  }
+);
+
+userStore.setState({ name: "Bob" });
+
+// Cleanup
+unsubscribe();
+unsubscribeName();
+```
+
+### Async Actions
+
+```typescript
+interface TodoState {
+  todos: Todo[];
+  loading: boolean;
+  fetchTodos: () => Promise<void>;
+}
+
+const todoStore = createStore<TodoState>((set) => ({
+  todos: [],
+  loading: false,
+  fetchTodos: async () => {
+    set({ loading: true });
+    try {
+      const response = await fetch("/api/todos");
+      const todos = await response.json();
+      set({ todos, loading: false });
+    } catch (error) {
+      set({ loading: false });
+    }
+  }
+}));
+
+await todoStore.getState().fetchTodos();
+```
+
+### Custom Equality Function
+
+```typescript
+import { deepEqual } from "@zayne-labs/toolkit-type-helpers";
+
+const store = createStore(
+  () => ({
+    user: { name: "Alice", preferences: { theme: "dark" } }
+  }),
+  {
+    equalityFn: deepEqual // Only notify if deeply different
+  }
+);
+```
+
+### Fire Listener Immediately
+
+```typescript
+const store = createStore(() => ({ count: 0 }));
+
+// Listener fires immediately with current state
+store.subscribe(
+  (state) => console.log("Count:", state.count),
+  { fireListenerImmediately: true }
+);
+// Logs: "Count: 0" immediately
+```
+
+### Reset to Initial State
+
+```typescript
+const store = createStore(() => ({
+  count: 0,
+  name: "Initial"
+}));
+
+store.setState({ count: 10, name: "Updated" });
+console.log(store.getState()); // { count: 10, name: "Updated" }
+
+store.resetState();
+console.log(store.getState()); // { count: 0, name: "Initial" }
+```
+
+## Types
+
+### StoreStateInitializer
+
+```typescript
+type StoreStateInitializer<TState> = (
+  set: StoreApi<TState>["setState"],
+  get: StoreApi<TState>["getState"],
+  api: StoreApi<TState>
+) => TState;
+```
+
+### SetState
+
+```typescript
+type SetState<TState> = {
+  // Partial update
+  (stateUpdate: Partial<TState> | ((prev: TState) => Partial<TState>), 
+   options?: SetStateOptions & { shouldReplace?: false }): void;
+  
+  // Full replacement
+  (stateUpdate: TState | ((prev: TState) => TState),
+   options?: SetStateOptions & { shouldReplace: true }): void;
+};
+```
+
+### SetStateOptions
+
+```typescript
+type SetStateOptions<TState> = {
+  shouldNotifySync?: boolean;
+  onNotifySync?: (prevState: TState) => void;
+  onNotifyViaBatch?: (prevState: TState) => void;
+};
+```
+
+### SubscribeOptions
+
+```typescript
+type SubscribeOptions<TState> = {
+  equalityFn?: EqualityFn<TState>;
+  fireListenerImmediately?: boolean;
+};
+```
+
+## Advanced Features
+
+### Batched Updates
+
+By default, multiple `setState` calls within the same execution context are batched:
+
+```typescript
+const store = createStore(() => ({ a: 0, b: 0 }));
+
+let updateCount = 0;
+store.subscribe(() => updateCount++);
+
+store.setState({ a: 1 });
+store.setState({ b: 1 });
+
+// Only 1 update fired instead of 2
+console.log(updateCount); // 1
+```
+
+### Synchronous Updates
+
+Force synchronous updates when needed:
+
+```typescript
+store.setState(
+  { count: 1 },
+  { shouldNotifySync: true }
+);
+```
+
+## Notes
+
+- State updates are batched by default for performance
+- Partial updates are merged with the current state automatically
+- Use `shouldReplace: true` to completely replace the state instead of merging
+- Subscribers only fire when state actually changes (determined by `equalityFn`)
+- The store is framework-agnostic and can be used with any UI library

@@ -1,0 +1,333 @@
+---
+title: useStorageState
+description: Hooks for managing state synchronized with browser storage (localStorage/sessionStorage)
+---
+
+## Overview
+
+`useStorageState` provides hooks for managing state that automatically syncs with browser storage (localStorage or sessionStorage). It includes support for cross-tab synchronization, custom serialization, type-safe selectors, and more.
+
+## Import
+
+```tsx
+import { useStorageState, createUseStorageState } from "@zayne-labs/toolkit-react";
+```
+
+---
+
+## useStorageState
+
+A hook for managing state synchronized with browser storage.
+
+### Signature
+
+```typescript
+const useStorageState = <TValue, TSlice = TValue>(
+  key: string,
+  defaultValue?: TValue,
+  options?: UseStorageStateOptions<TValue> & { select?: SelectorFn<TValue, TSlice> }
+) => [state: TSlice, actions: StorageStoreApi<TValue>]
+```
+
+### Parameters
+
+<ParamField path="key" type="string" required>
+  The storage key to use for persisting the state.
+</ParamField>
+
+<ParamField path="defaultValue" type="TValue">
+  The default value to use if no value exists in storage.
+</ParamField>
+
+<ParamField path="options" type="UseStorageStateOptions<TValue>">
+  Configuration options for storage behavior.
+  
+  <ParamField path="options.storageArea" type="Storage" default="localStorage">
+    The storage area to use (`localStorage` or `sessionStorage`).
+  </ParamField>
+  
+  <ParamField path="options.syncStateAcrossTabs" type="boolean" default="true">
+    Whether to sync state changes across browser tabs.
+  </ParamField>
+  
+  <ParamField path="options.serializer" type="(value: TValue) => string">
+    Custom serialization function. Defaults to `JSON.stringify`.
+  </ParamField>
+  
+  <ParamField path="options.parser" type="(value: string) => TValue">
+    Custom parsing function. Defaults to `JSON.parse`.
+  </ParamField>
+  
+  <ParamField path="options.select" type="SelectorFn<TValue, TSlice>">
+    Selector function to derive a slice of the state.
+  </ParamField>
+  
+  <ParamField path="options.equalityFn" type="(a: TSlice, b: TSlice) => boolean">
+    Custom equality function for determining when to re-render.
+  </ParamField>
+  
+  <ParamField path="options.partialize" type="(state: TValue) => Partial<TValue>">
+    Function to select which parts of the state to persist.
+  </ParamField>
+  
+  <ParamField path="options.logger" type="(error: Error) => void">
+    Custom error logger for storage operations.
+  </ParamField>
+</ParamField>
+
+### Return Value
+
+Returns a tuple:
+
+<ResponseField name="state" type="TSlice">
+  The current state value (or selected slice).
+</ResponseField>
+
+<ResponseField name="actions" type="StorageStoreApi<TValue>">
+  Object containing methods to interact with the storage:
+  - `setState(value)`: Updates the state
+  - `getState()`: Gets the current state
+  - `subscribe(callback)`: Subscribes to state changes
+  - `removeItem()`: Removes the item from storage
+</ResponseField>
+
+### Usage
+
+#### Basic Usage
+
+```tsx
+import { useStorageState } from "@zayne-labs/toolkit-react";
+
+function ThemeToggle() {
+  const [theme, themeActions] = useStorageState("theme", "light");
+
+  return (
+    <button onClick={() => themeActions.setState(theme === "light" ? "dark" : "light")}>
+      Current theme: {theme}
+    </button>
+  );
+}
+```
+
+#### With TypeScript
+
+```tsx
+import { useStorageState } from "@zayne-labs/toolkit-react";
+
+type UserPreferences = {
+  notifications: boolean;
+  theme: "light" | "dark";
+  fontSize: number;
+};
+
+function SettingsPanel() {
+  const [preferences, preferencesActions] = useStorageState<UserPreferences>(
+    "user-preferences",
+    {
+      notifications: true,
+      theme: "light",
+      fontSize: 16,
+    }
+  );
+
+  return (
+    <div>
+      <label>
+        <input
+          type="checkbox"
+          checked={preferences.notifications}
+          onChange={(e) =>
+            preferencesActions.setState({
+              ...preferences,
+              notifications: e.target.checked,
+            })
+          }
+        />
+        Enable notifications
+      </label>
+      
+      <select
+        value={preferences.theme}
+        onChange={(e) =>
+          preferencesActions.setState({
+            ...preferences,
+            theme: e.target.value as "light" | "dark",
+          })
+        }
+      >
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
+  );
+}
+```
+
+#### Using Selectors
+
+```tsx
+import { useStorageState } from "@zayne-labs/toolkit-react";
+
+type AppState = {
+  user: { name: string; email: string };
+  settings: { theme: string };
+};
+
+function UserProfile() {
+  // Only subscribe to user slice
+  const [user] = useStorageState<AppState, AppState["user"]>(
+    "app-state",
+    undefined,
+    {
+      select: (state) => state.user,
+    }
+  );
+
+  return (
+    <div>
+      <p>Name: {user.name}</p>
+      <p>Email: {user.email}</p>
+    </div>
+  );
+}
+```
+
+#### Session Storage
+
+```tsx
+import { useStorageState } from "@zayne-labs/toolkit-react";
+
+function FormData() {
+  const [formData, formActions] = useStorageState(
+    "temp-form-data",
+    { email: "", message: "" },
+    { storageArea: sessionStorage }
+  );
+
+  return (
+    <form>
+      <input
+        type="email"
+        value={formData.email}
+        onChange={(e) =>
+          formActions.setState({ ...formData, email: e.target.value })
+        }
+      />
+      <textarea
+        value={formData.message}
+        onChange={(e) =>
+          formActions.setState({ ...formData, message: e.target.value })
+        }
+      />
+    </form>
+  );
+}
+```
+
+---
+
+## createUseStorageState
+
+Creates a custom storage state hook with shared base options.
+
+### Signature
+
+```typescript
+const createUseStorageState = <TState>(
+  baseOptions: StorageOptions<TState>
+) => UseBoundStorageState<TState>
+```
+
+### Parameters
+
+<ParamField path="baseOptions" type="StorageOptions<TState>" required>
+  Base configuration options that will be shared across all instances.
+  
+  <ParamField path="baseOptions.key" type="string" required>
+    The storage key.
+  </ParamField>
+  
+  <ParamField path="baseOptions.initialValue" type="TState" required>
+    The initial/default value.
+  </ParamField>
+  
+  <ParamField path="baseOptions.storageArea" type="Storage">
+    The storage area to use.
+  </ParamField>
+  
+  <ParamField path="baseOptions.syncStateAcrossTabs" type="boolean">
+    Whether to sync across tabs.
+  </ParamField>
+  
+  <ParamField path="baseOptions.serializer" type="(value: TState) => string">
+    Custom serializer.
+  </ParamField>
+  
+  <ParamField path="baseOptions.parser" type="(value: string) => TState">
+    Custom parser.
+  </ParamField>
+</ParamField>
+
+### Return Value
+
+<ResponseField name="useCustomStorageState" type="UseBoundStorageState<TState>">
+  A custom hook with the base options pre-configured. Can be called with an optional selector.
+  The hook also exposes all storage API methods directly (setState, getState, etc.).
+</ResponseField>
+
+### Usage
+
+```tsx
+import { createUseStorageState } from "@zayne-labs/toolkit-react";
+
+type AppSettings = {
+  theme: "light" | "dark";
+  language: string;
+  notifications: boolean;
+};
+
+// Create a custom hook with shared configuration
+const useAppSettings = createUseStorageState<AppSettings>({
+  key: "app-settings",
+  initialValue: {
+    theme: "light",
+    language: "en",
+    notifications: true,
+  },
+  syncStateAcrossTabs: true,
+});
+
+// Use in multiple components
+function ThemeSelector() {
+  const [theme] = useAppSettings((state) => state.theme);
+  
+  return (
+    <button onClick={() => useAppSettings.setState({ theme: "dark" })}>
+      Current: {theme}
+    </button>
+  );
+}
+
+function NotificationToggle() {
+  const [notifications] = useAppSettings((state) => state.notifications);
+  
+  return (
+    <input
+      type="checkbox"
+      checked={notifications}
+      onChange={(e) =>
+        useAppSettings.setState({ notifications: e.target.checked })
+      }
+    />
+  );
+}
+```
+
+## Notes
+
+- State is automatically synced across tabs by default (can be disabled with `syncStateAcrossTabs: false`)
+- All options are memoized using stable callback references to prevent unnecessary re-renders
+- Storage errors are handled gracefully and can be logged with a custom logger
+- Built on top of `createExternalStorageStore` from `@zayne-labs/toolkit-core`
+- Supports partial state persistence via the `partialize` option
+- Uses `useStore` internally for efficient subscriptions

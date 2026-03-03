@@ -1,0 +1,715 @@
+---
+title: Guards & Assertions
+description: Runtime type checking with type guards and assertion functions for safe type narrowing
+---
+
+Type guards and assertions provide runtime type safety by narrowing types based on runtime checks.
+
+## Type Guards
+
+Type guards are functions that perform runtime checks and narrow TypeScript types using type predicates.
+
+### Primitive Type Guards
+
+Check for primitive JavaScript types.
+
+<CodeGroup>
+```typescript isString
+import { isString } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = 'hello';
+
+if (isString(value)) {
+  // TypeScript knows value is string here
+  console.log(value.toUpperCase()); // OK
+}
+```
+
+```typescript isNumber
+import { isNumber } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = 42;
+
+if (isNumber(value)) {
+  // TypeScript knows value is number here
+  console.log(value.toFixed(2)); // OK
+}
+```
+
+```typescript isBoolean
+import { isBoolean } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = true;
+
+if (isBoolean(value)) {
+  // TypeScript knows value is boolean here
+  console.log(!value); // OK
+}
+```
+
+```typescript isSymbol
+import { isSymbol } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = Symbol('key');
+
+if (isSymbol(value)) {
+  // TypeScript knows value is symbol here
+  console.log(value.description); // OK
+}
+```
+</CodeGroup>
+
+<Info>
+**Type Signatures**
+
+```typescript
+export const isString = (value: unknown) => typeof value === "string";
+export const isNumber = (value: unknown) => typeof value === "number";
+export const isBoolean = (value: unknown) => typeof value === "boolean";
+export const isSymbol = (value: unknown) => typeof value === "symbol";
+```
+</Info>
+
+### Object Type Guards
+
+Check for various object types and structures.
+
+<Tabs>
+  <Tab title="isArray">
+    ```typescript
+    import { isArray } from '@zayne-labs/toolkit-type-helpers';
+
+    const value: unknown = ['a', 'b', 'c'];
+
+    if (isArray<string>(value)) {
+      // TypeScript knows value is string[] here
+      value.forEach(item => console.log(item.toUpperCase()));
+    }
+    ```
+    
+    **Signature:**
+    ```typescript
+    export const isArray = <TArray>(value: unknown): value is TArray[] => 
+      Array.isArray(value);
+    ```
+  </Tab>
+  
+  <Tab title="isObject">
+    ```typescript
+    import { isObject } from '@zayne-labs/toolkit-type-helpers';
+
+    const value: unknown = { name: 'John' };
+
+    if (isObject<{ name: string }>(value)) {
+      // TypeScript knows value is { name: string } here
+      console.log(value.name);
+    }
+    ```
+    
+    **Signature:**
+    ```typescript
+    export const isObject = <TObject extends object>(value: unknown): value is TObject => {
+      return typeof value === "object" && value !== null;
+    };
+    ```
+    
+    <Note>
+    `isObject` returns `true` for arrays, Maps, Sets, and other object types. Use `isPlainObject` for plain objects only.
+    </Note>
+  </Tab>
+  
+  <Tab title="isPlainObject">
+    ```typescript
+    import { isPlainObject } from '@zayne-labs/toolkit-type-helpers';
+
+    const value: unknown = { name: 'John' };
+
+    if (isPlainObject(value)) {
+      // Only true for plain objects, not arrays, Maps, etc.
+      console.log(Object.keys(value));
+    }
+
+    // Returns false for:
+    isPlainObject([]);           // false - array
+    isPlainObject(new Map());    // false - Map
+    isPlainObject(new Date());   // false - Date
+    ```
+    
+    **Signature:**
+    ```typescript
+    export const isPlainObject = <TPlainObject extends UnknownObjectWithAnyKey = UnknownObject>(
+      value: unknown
+    ): value is TPlainObject => {
+      if (!hasObjectPrototype(value)) return false;
+      // ... additional checks for plain objects
+    };
+    ```
+  </Tab>
+  
+  <Tab title="isObjectAndNotArray">
+    ```typescript
+    import { isObjectAndNotArray } from '@zayne-labs/toolkit-type-helpers';
+
+    const value: unknown = { name: 'John' };
+
+    if (isObjectAndNotArray(value)) {
+      // TypeScript knows value is object but not an array
+      console.log(value);
+    }
+    ```
+    
+    **Signature:**
+    ```typescript
+    export const isObjectAndNotArray = <TObject = UnknownObject>(
+      value: unknown
+    ): value is TObject => {
+      return isObject(value) && !isArray(value);
+    };
+    ```
+  </Tab>
+</Tabs>
+
+### Collection Type Guards
+
+Check for collection types like Map, Set, and FormData.
+
+<CodeGroup>
+```typescript isMap
+import { isMap } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = new Map([['key', 'value']]);
+
+if (isMap<Map<string, string>>(value)) {
+  // TypeScript knows value is Map<string, string> here
+  console.log(value.get('key'));
+}
+```
+
+```typescript isSet
+import { isSet } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = new Set(['a', 'b', 'c']);
+
+if (isSet<Set<string>>(value)) {
+  // TypeScript knows value is Set<string> here
+  console.log(value.has('a'));
+}
+```
+
+```typescript isFormData
+import { isFormData } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = new FormData();
+
+if (isFormData(value)) {
+  // TypeScript knows value is FormData here
+  value.append('field', 'value');
+}
+```
+</CodeGroup>
+
+### Function Type Guards
+
+Check for function types including async functions.
+
+<Tabs>
+  <Tab title="isFunction">
+    ```typescript
+    import { isFunction } from '@zayne-labs/toolkit-type-helpers';
+
+    const value: unknown = (x: number) => x * 2;
+
+    if (isFunction<(x: number) => number>(value)) {
+      // TypeScript knows value is a function here
+      const result = value(5); // 10
+    }
+    ```
+    
+    **Signature:**
+    ```typescript
+    export const isFunction = <TFunction extends AnyFunction>(
+      value: unknown
+    ): value is TFunction => {
+      return typeof value === "function";
+    };
+    ```
+  </Tab>
+  
+  <Tab title="isAsyncFunction">
+    ```typescript
+    import { isAsyncFunction } from '@zayne-labs/toolkit-type-helpers';
+
+    const value: unknown = async () => 'result';
+
+    if (isAsyncFunction(value)) {
+      // TypeScript knows value is an async function
+      const result = await value();
+    }
+    ```
+    
+    **Signature:**
+    ```typescript
+    export const isAsyncFunction = <TAsyncFunction extends AnyAsyncFunction>(
+      value: unknown
+    ): value is TAsyncFunction => {
+      return isFunction(value) && value.constructor.name === "AsyncFunction";
+    };
+    ```
+  </Tab>
+</Tabs>
+
+### Browser & Web API Guards
+
+Check for browser-specific types.
+
+<CodeGroup>
+```typescript isFile
+import { isFile } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = new File(['content'], 'file.txt');
+
+if (isFile(value)) {
+  // TypeScript knows value is File here
+  console.log(value.name, value.size);
+}
+```
+
+```typescript isBlob
+import { isBlob } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = new Blob(['content']);
+
+if (isBlob(value)) {
+  // TypeScript knows value is Blob here
+  console.log(value.size, value.type);
+}
+```
+
+```typescript isPromise
+import { isPromise } from '@zayne-labs/toolkit-type-helpers';
+
+const value: unknown = Promise.resolve('result');
+
+if (isPromise(value)) {
+  // TypeScript knows value is Promise here
+  const result = await value;
+}
+```
+</CodeGroup>
+
+### JSON & Serialization Guards
+
+Check for JSON-serializable values and valid JSON strings.
+
+<Tabs>
+  <Tab title="isValidJsonString">
+    ```typescript
+    import { isValidJsonString } from '@zayne-labs/toolkit-type-helpers';
+
+    const value: unknown = '{"name":"John"}';
+
+    if (isValidJsonString(value)) {
+      // TypeScript knows value is a valid JSON string
+      const parsed = JSON.parse(value);
+    }
+
+    // Returns false for:
+    isValidJsonString('not json');     // false
+    isValidJsonString('{invalid}');    // false
+    isValidJsonString(42);             // false
+    ```
+  </Tab>
+  
+  <Tab title="isJSONSerializable">
+    ```typescript
+    import { isJSONSerializable } from '@zayne-labs/toolkit-type-helpers';
+
+    const obj = { name: 'John', age: 30 };
+
+    if (isJSONSerializable(obj)) {
+      // Safe to serialize
+      const json = JSON.stringify(obj);
+    }
+
+    // Returns true for:
+    isJSONSerializable('string');              // true
+    isJSONSerializable(42);                    // true
+    isJSONSerializable({ key: 'value' });      // true
+    isJSONSerializable([1, 2, 3]);             // true
+
+    // Returns false for:
+    isJSONSerializable(undefined);             // false
+    isJSONSerializable(() => {});              // false
+    isJSONSerializable(new Map());             // false
+    ```
+  </Tab>
+  
+  <Tab title="isSerializableObject">
+    ```typescript
+    import { isSerializableObject } from '@zayne-labs/toolkit-type-helpers';
+
+    const value: unknown = { name: 'John' };
+
+    if (isSerializableObject(value)) {
+      // TypeScript knows value is serializable
+      const json = JSON.stringify(value);
+    }
+
+    // Returns true for:
+    isSerializableObject({});                  // true
+    isSerializableObject([]);                  // true
+    isSerializableObject({ toJSON: () => {} }); // true
+    ```
+  </Tab>
+</Tabs>
+
+### Advanced Guards
+
+#### isIterable
+
+Checks if an object is iterable.
+
+```typescript
+import { isIterable } from '@zayne-labs/toolkit-type-helpers';
+
+const arr = [1, 2, 3];
+const map = new Map();
+const obj = { key: 'value' };
+
+if (isIterable<number>(arr)) {
+  for (const item of arr) {
+    console.log(item);
+  }
+}
+
+isIterable(map);  // true
+isIterable(arr);  // true
+isIterable(obj);  // false
+```
+
+**Signature:**
+```typescript
+export const isIterable = <TIterable>(obj: object): obj is Iterable<TIterable> => 
+  Symbol.iterator in obj;
+```
+
+#### hasObjectPrototype
+
+Checks if a value has Object.prototype.
+
+```typescript
+import { hasObjectPrototype } from '@zayne-labs/toolkit-type-helpers';
+
+hasObjectPrototype({});              // true
+hasObjectPrototype([]);              // false
+hasObjectPrototype(new Date());      // false
+hasObjectPrototype(Object.create(null)); // false
+```
+
+**Signature:**
+```typescript
+export const hasObjectPrototype = (value: unknown) => {
+  return Object.prototype.toString.call(value) === "[object Object]";
+};
+```
+
+## Assertions
+
+Assertion functions throw errors when conditions aren't met and narrow types.
+
+### assert
+
+General-purpose assertion function with overloads.
+
+<Tabs>
+  <Tab title="Boolean Conditions">
+    ```typescript
+    import { assert } from '@zayne-labs/toolkit-type-helpers';
+
+    function divide(a: number, b: number) {
+      assert(b !== 0, 'Division by zero');
+      return a / b;
+    }
+
+    divide(10, 2);  // OK
+    divide(10, 0);  // Throws: AssertionError: Assertion failed: Division by zero
+    ```
+  </Tab>
+  
+  <Tab title="Non-Null Values">
+    ```typescript
+    import { assert } from '@zayne-labs/toolkit-type-helpers';
+
+    function processUser(user: User | null) {
+      assert(user);
+      // TypeScript knows user is non-null here
+      console.log(user.name);
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Custom Messages">
+    ```typescript
+    import { assert } from '@zayne-labs/toolkit-type-helpers';
+
+    // String message
+    assert(condition, 'Custom error message');
+
+    // Object with message
+    assert(condition, { message: 'Custom error message' });
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+**Type Signature**
+
+```typescript
+type AssertOptions = {
+  message: string;
+};
+
+type AssertFn = {
+  (condition: boolean, messageOrOptions?: string | AssertOptions): asserts condition;
+
+  <TValue>(
+    value: TValue,
+    messageOrOptions?: string | AssertOptions
+  ): asserts value is NonNullable<TValue>;
+};
+
+export const assert: AssertFn = (input: unknown, messageOrOptions?: string | AssertOptions) => {
+  if (input === false || input == null) {
+    const message = isString(messageOrOptions) ? messageOrOptions : messageOrOptions?.message;
+    throw new AssertionError(message);
+  }
+};
+```
+</Info>
+
+### assertDefined
+
+Asserts that a value is not null or undefined.
+
+```typescript
+import { assertDefined } from '@zayne-labs/toolkit-type-helpers';
+
+function processConfig(config: Config | null | undefined) {
+  assertDefined(config);
+  // TypeScript knows config is Config here (not null/undefined)
+  console.log(config.apiUrl);
+}
+
+// Usage
+processConfig(config);      // OK if config is defined
+processConfig(null);        // Throws: AssertionError: The value passed is "null!"
+processConfig(undefined);   // Throws: AssertionError: The value passed is "undefined!"
+```
+
+<Info>
+**Type Signature**
+
+```typescript
+export const assertDefined = <TValue>(value: TValue) => {
+  if (value == null) {
+    throw new AssertionError(`The value passed is "${value as null | undefined}!"`);
+  }
+  return value;
+};
+```
+</Info>
+
+### assertENV
+
+Asserts that an environment variable is defined.
+
+```typescript
+import { assertENV } from '@zayne-labs/toolkit-type-helpers';
+
+// In Node.js or similar environments
+const apiKey = assertENV(
+  process.env.API_KEY,
+  'API_KEY environment variable is required'
+);
+// TypeScript knows apiKey is string here (not undefined)
+
+// Use in configuration
+const config = {
+  apiKey: assertENV(process.env.API_KEY, 'Missing API_KEY'),
+  apiUrl: assertENV(process.env.API_URL, 'Missing API_URL'),
+};
+```
+
+<Info>
+**Type Signature**
+
+```typescript
+export const assertENV = (variable: string | undefined, message?: string) => {
+  if (variable === undefined) {
+    throw new AssertionError(message);
+  }
+  return variable;
+};
+```
+</Info>
+
+### AssertionError
+
+Custom error class thrown by assertion functions.
+
+```typescript
+import { AssertionError } from '@zayne-labs/toolkit-type-helpers';
+
+try {
+  assert(false, 'Something went wrong');
+} catch (error) {
+  if (error instanceof AssertionError) {
+    console.log(error.name);    // 'AssertionError'
+    console.log(error.message); // 'Assertion failed: Something went wrong'
+  }
+}
+```
+
+<Info>
+**Class Definition**
+
+```typescript
+export class AssertionError extends Error {
+  override name = "AssertionError";
+
+  constructor(message?: string) {
+    const prefix = "Assertion failed";
+    super(message ? `${prefix}: ${message}` : message);
+  }
+}
+```
+</Info>
+
+## Practical Examples
+
+### API Response Validation
+
+```typescript
+import { isObject, isString, isNumber, assert } from '@zayne-labs/toolkit-type-helpers';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+function parseUserResponse(response: unknown): User {
+  assert(isObject(response), 'Response must be an object');
+  
+  const { id, name, email } = response as Record<string, unknown>;
+  
+  assert(isNumber(id), 'User ID must be a number');
+  assert(isString(name), 'User name must be a string');
+  assert(isString(email), 'User email must be a string');
+  
+  return { id, name, email };
+}
+```
+
+### Form Data Processing
+
+```typescript
+import { isFormData, assert } from '@zayne-labs/toolkit-type-helpers';
+
+function handleFormSubmit(data: unknown) {
+  assert(isFormData(data), 'Expected FormData');
+  
+  const name = data.get('name');
+  const email = data.get('email');
+  
+  assert(isString(name), 'Name is required');
+  assert(isString(email), 'Email is required');
+  
+  // Process form data...
+}
+```
+
+### Configuration Loading
+
+```typescript
+import { assertENV, isString, isNumber } from '@zayne-labs/toolkit-type-helpers';
+
+function loadConfig() {
+  const config = {
+    apiKey: assertENV(process.env.API_KEY, 'API_KEY is required'),
+    apiUrl: assertENV(process.env.API_URL, 'API_URL is required'),
+    port: Number(process.env.PORT || 3000),
+  };
+  
+  assert(isString(config.apiKey) && config.apiKey.length > 0);
+  assert(isNumber(config.port) && config.port > 0);
+  
+  return config;
+}
+```
+
+### Type Narrowing with Guards
+
+```typescript
+import { isArray, isString, isNumber } from '@zayne-labs/toolkit-type-helpers';
+
+function processValue(value: unknown) {
+  if (isString(value)) {
+    return value.toUpperCase();
+  }
+  
+  if (isNumber(value)) {
+    return value.toFixed(2);
+  }
+  
+  if (isArray<string>(value)) {
+    return value.join(', ');
+  }
+  
+  throw new Error('Unsupported type');
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Choose the Right Guard">
+    - Use `isObject` for general object checks (includes arrays, Maps, etc.)
+    - Use `isPlainObject` for plain JavaScript objects only
+    - Use `isObjectAndNotArray` when you specifically need to exclude arrays
+    - Use `isValidJsonString` for validating JSON strings before parsing
+  </Accordion>
+  
+  <Accordion title="Assertion Error Messages">
+    - Always provide descriptive error messages
+    - Include context about what failed and why
+    - Use `assertENV` specifically for environment variables
+    - Catch `AssertionError` specifically when needed
+  </Accordion>
+  
+  <Accordion title="Type Narrowing">
+    - Guards narrow types automatically with type predicates
+    - Use assertions at function boundaries (e.g., API responses)
+    - Combine multiple guards for complex validation
+    - Prefer guards over type assertions (`as`) for runtime safety
+  </Accordion>
+  
+  <Accordion title="Performance Considerations">
+    - Guards are runtime checks - use judiciously in hot paths
+    - `isPlainObject` is more expensive than `isObject`
+    - Consider caching validation results for repeated checks
+    - Use TypeScript's compile-time types when possible
+  </Accordion>
+</AccordionGroup>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Type Utilities" icon="wand-magic-sparkles" href="/type-helpers/type-utilities">
+    Type transformation utilities
+  </Card>
+  
+  <Card title="Enums" icon="bars-staggered" href="/type-helpers/enums">
+    Type-safe enum utilities
+  </Card>
+</CardGroup>

@@ -1,0 +1,193 @@
+---
+title: useDebounce
+description: Hooks for debouncing function calls and state updates
+---
+
+## Overview
+
+The debounce hooks provide two utilities for delaying function execution or state updates until after a specified delay has elapsed since the last invocation. This is useful for optimizing performance when handling frequent events like typing, scrolling, or resizing.
+
+## Import
+
+```tsx
+import { useDebouncedFn, useDebouncedState } from "@zayne-labs/toolkit-react";
+```
+
+---
+
+## useDebouncedFn
+
+Debounces a callback function, delaying its execution until after the specified delay.
+
+### Signature
+
+```typescript
+const useDebouncedFn = <TParams>(
+  callBackFn: CallbackFn<TParams>,
+  delay: number | undefined
+) => DebouncedFunction<TParams>
+```
+
+### Parameters
+
+<ParamField path="callBackFn" type="CallbackFn<TParams>" required>
+  The function to debounce. The function will be called with the latest arguments after the delay period.
+</ParamField>
+
+<ParamField path="delay" type="number | undefined" required>
+  The delay in milliseconds. If `undefined`, the function executes immediately without debouncing.
+</ParamField>
+
+### Return Value
+
+<ResponseField name="debouncedFn" type="DebouncedFunction<TParams>">
+  The debounced function with additional methods:
+  - `cancel()`: Cancels pending debounced invocation
+  - `cancelMaxWait()`: Cancels the max wait timeout
+</ResponseField>
+
+### Usage
+
+```tsx
+import { useDebouncedFn } from "@zayne-labs/toolkit-react";
+import { useState } from "react";
+
+function SearchExample() {
+  const [results, setResults] = useState([]);
+
+  const performSearch = useDebouncedFn(async (query: string) => {
+    const response = await fetch(`/api/search?q=${query}`);
+    const data = await response.json();
+    setResults(data);
+  }, 300);
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Search..."
+        onChange={(e) => performSearch(e.target.value)}
+      />
+      <ul>
+        {results.map((result) => (
+          <li key={result.id}>{result.name}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+---
+
+## useDebouncedState
+
+Creates a state value that updates after a debounced delay.
+
+### Signature
+
+```typescript
+const useDebouncedState = <TValue>(
+  defaultValue: TValue,
+  delay: number | undefined
+) => readonly [
+  value: TValue,
+  setDebouncedValue: DebouncedFunction<[TValue]>,
+  setValue: Dispatch<SetStateAction<TValue>>
+]
+```
+
+### Parameters
+
+<ParamField path="defaultValue" type="TValue" required>
+  The initial state value.
+</ParamField>
+
+<ParamField path="delay" type="number | undefined" required>
+  The delay in milliseconds before the state updates. If `undefined`, updates occur immediately.
+</ParamField>
+
+### Return Value
+
+Returns a tuple with three elements:
+
+<ResponseField name="value" type="TValue">
+  The current state value.
+</ResponseField>
+
+<ResponseField name="setDebouncedValue" type="DebouncedFunction<[TValue]>">
+  Setter function that debounces the state update. Includes `cancel()` and `cancelMaxWait()` methods.
+</ResponseField>
+
+<ResponseField name="setValue" type="Dispatch<SetStateAction<TValue>>">
+  Immediate setter function that updates the state without debouncing.
+</ResponseField>
+
+### Usage
+
+```tsx
+import { useDebouncedState } from "@zayne-labs/toolkit-react";
+
+function DebouncedInputExample() {
+  const [searchTerm, setDebouncedSearchTerm, setSearchTerm] = useDebouncedState("", 500);
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Type to search..."
+        onChange={(e) => setDebouncedSearchTerm(e.target.value)}
+      />
+      <p>Debounced value: {searchTerm}</p>
+      
+      {/* You can also set immediately if needed */}
+      <button onClick={() => setSearchTerm("immediate value")}>
+        Set Immediately
+      </button>
+    </div>
+  );
+}
+```
+
+### Advanced Usage
+
+```tsx
+import { useDebouncedState } from "@zayne-labs/toolkit-react";
+import { useEffect } from "react";
+
+function AutoSaveExample() {
+  const [content, setDebouncedContent, setContent] = useDebouncedState("", 1000);
+
+  useEffect(() => {
+    if (content) {
+      // Auto-save after user stops typing for 1 second
+      fetch("/api/save", {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      });
+    }
+  }, [content]);
+
+  return (
+    <div>
+      <textarea
+        value={content}
+        onChange={(e) => {
+          // Update local value immediately for UI responsiveness
+          setContent(e.target.value);
+          // Debounced value will trigger save after delay
+          setDebouncedContent(e.target.value);
+        }}
+        placeholder="Type something... (auto-saves after 1 second)"
+      />
+    </div>
+  );
+}
+```
+
+## Notes
+
+- Both hooks automatically clean up pending debounced calls on component unmount
+- The callback function in `useDebouncedFn` is kept up to date via `useCallbackRef`
+- Built on top of the `debounce` utility from `@zayne-labs/toolkit-core`
+- The debounced functions include `cancel()` and `cancelMaxWait()` methods for manual cleanup

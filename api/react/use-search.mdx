@@ -1,0 +1,329 @@
+---
+title: useSearch
+description: A hook for filtering and searching through data with debounced query updates
+---
+
+## Overview
+
+`useSearch` is a hook that provides client-side search functionality with automatic filtering and debouncing. It works with arrays of primitives or objects, searching through serializable properties.
+
+## Import
+
+```tsx
+import { useSearch } from "@zayne-labs/toolkit-react";
+```
+
+## Signature
+
+```typescript
+const useSearch = <TData>(
+  initialData: TData[],
+  delay?: number
+) => {
+  data: TData[];
+  isLoading: boolean;
+  query: string;
+  setQuery: (query: string) => void;
+}
+```
+
+## Parameters
+
+<ParamField path="initialData" type="TData[]" required>
+  The array of data to search through. Can be an array of primitives (strings, numbers, booleans) or objects.
+</ParamField>
+
+<ParamField path="delay" type="number">
+  Debounce delay in milliseconds before filtering occurs. If not provided, filtering happens immediately.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="data" type="TData[]">
+  The filtered data based on the current search query.
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  Whether a search is currently in progress (useful when debouncing is enabled).
+</ResponseField>
+
+<ResponseField name="query" type="string">
+  The current search query string.
+</ResponseField>
+
+<ResponseField name="setQuery" type="(query: string) => void">
+  Function to update the search query.
+</ResponseField>
+
+## Usage
+
+### Basic String Search
+
+```tsx
+import { useSearch } from "@zayne-labs/toolkit-react";
+
+function FruitSearch() {
+  const fruits = ["Apple", "Banana", "Cherry", "Date", "Elderberry"];
+  const { data, query, setQuery, isLoading } = useSearch(fruits, 300);
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Search fruits..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      
+      {isLoading && <p>Searching...</p>}
+      
+      <ul>
+        {data.map((fruit) => (
+          <li key={fruit}>{fruit}</li>
+        ))}
+      </ul>
+      
+      {data.length === 0 && !isLoading && (
+        <p>No results found for "{query}"</p>
+      )}
+    </div>
+  );
+}
+```
+
+### Search Object Properties
+
+```tsx
+import { useSearch } from "@zayne-labs/toolkit-react";
+
+type User = {
+  id: number;
+  name: string;
+  email: string;
+  age: number;
+};
+
+function UserSearch() {
+  const users: User[] = [
+    { id: 1, name: "John Doe", email: "john@example.com", age: 30 },
+    { id: 2, name: "Jane Smith", email: "jane@example.com", age: 25 },
+    { id: 3, name: "Bob Johnson", email: "bob@example.com", age: 35 },
+  ];
+
+  const { data, query, setQuery } = useSearch(users, 200);
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Search by name, email, or age..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      
+      <div>
+        {data.map((user) => (
+          <div key={user.id}>
+            <h3>{user.name}</h3>
+            <p>{user.email}</p>
+            <p>Age: {user.age}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+### Product Search
+
+```tsx
+import { useSearch } from "@zayne-labs/toolkit-react";
+
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  inStock: boolean;
+};
+
+function ProductSearch({ products }: { products: Product[] }) {
+  const { data, query, setQuery, isLoading } = useSearch(products, 300);
+
+  return (
+    <div>
+      <div className="search-header">
+        <input
+          type="search"
+          placeholder="Search products..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <span>{data.length} results</span>
+      </div>
+      
+      {isLoading ? (
+        <p>Searching...</p>
+      ) : (
+        <div className="product-grid">
+          {data.map((product) => (
+            <div key={product.id} className="product-card">
+              <h3>{product.name}</h3>
+              <p className="price">${product.price}</p>
+              <p className="category">{product.category}</p>
+              {product.inStock ? (
+                <span className="in-stock">In Stock</span>
+              ) : (
+                <span className="out-of-stock">Out of Stock</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Search with Clear Button
+
+```tsx
+import { useSearch } from "@zayne-labs/toolkit-react";
+
+function SearchWithClear() {
+  const items = ["React", "Vue", "Angular", "Svelte", "Solid"];
+  const { data, query, setQuery } = useSearch(items, 200);
+
+  return (
+    <div>
+      <div className="search-input-wrapper">
+        <input
+          type="text"
+          placeholder="Search frameworks..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {query && (
+          <button onClick={() => setQuery("")} aria-label="Clear search">
+            ✕
+          </button>
+        )}
+      </div>
+      
+      <ul>
+        {data.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### Number Search
+
+```tsx
+import { useSearch } from "@zayne-labs/toolkit-react";
+
+function NumberSearch() {
+  const numbers = [10, 25, 30, 45, 50, 100, 250, 500];
+  const { data, query, setQuery } = useSearch(numbers);
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Search numbers..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      
+      <ul>
+        {data.map((num, index) => (
+          <li key={index}>{num}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### Real-time Search Stats
+
+```tsx
+import { useSearch } from "@zayne-labs/toolkit-react";
+
+type Article = {
+  id: number;
+  title: string;
+  author: string;
+  published: boolean;
+};
+
+function ArticleSearch({ articles }: { articles: Article[] }) {
+  const { data, query, setQuery, isLoading } = useSearch(articles, 300);
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Search articles..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      
+      <div className="search-stats">
+        <p>
+          {isLoading ? (
+            "Searching..."
+          ) : (
+            `Found ${data.length} of ${articles.length} articles`
+          )}
+        </p>
+      </div>
+      
+      <div>
+        {data.map((article) => (
+          <div key={article.id}>
+            <h3>{article.title}</h3>
+            <p>By {article.author}</p>
+            {article.published && <span>Published</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## How It Works
+
+### Primitive Values
+For strings, numbers, and booleans, the search performs a case-insensitive substring match:
+
+```tsx
+const data = ["Apple", "Banana", "Cherry"];
+// Query "app" matches "Apple"
+// Query "3" in [1, 2, 30, 300] matches 30 and 300
+```
+
+### Object Values
+For objects, the search checks all serializable properties (strings, numbers, booleans) for matches:
+
+```tsx
+const users = [
+  { name: "John", age: 30, email: "john@example.com" },
+];
+// Query "john" matches (found in name and email)
+// Query "30" matches (found in age)
+```
+
+## Notes
+
+- Search is case-insensitive
+- Only serializable object properties (strings, numbers, booleans) are searched
+- The `isLoading` state is only set when debouncing is enabled (delay is provided)
+- Uses `useDebouncedFn` internally for debounced search
+- Updates only occur after mount to avoid unnecessary initial filtering
+- Built on top of `isPlainObject` from `@zayne-labs/toolkit-type-helpers`

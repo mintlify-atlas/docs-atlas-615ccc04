@@ -1,0 +1,281 @@
+---
+title: createReactStore
+description: Create a Zustand store with React hooks integration
+---
+
+## Overview
+
+`createReactStore` is a wrapper around Zustand's `createStore` that provides a React hook interface for accessing store state. It creates a bound hook that can be used directly in React components with optional selectors.
+
+## Import
+
+```typescript
+import { createReactStore } from "@zayne-labs/toolkit-react";
+```
+
+## Signature
+
+```typescript
+function createReactStore<TState>(
+  initializer: StoreStateInitializer<TState>
+): UseBoundStore<StoreApi<TState>>
+
+function createReactStore<TState>(): (
+  initializer: StoreStateInitializer<TState>
+) => UseBoundStore<StoreApi<TState>>
+```
+
+## Parameters
+
+<ParamField path="initializer" type="StoreStateInitializer<TState>">
+  A function that receives `set`, `get`, and `store` parameters and returns the initial state.
+  
+  The initializer function signature:
+  ```typescript
+  (set: SetState<TState>, get: GetState<TState>, store: StoreApi<TState>) => TState
+  ```
+  
+  This parameter can be omitted to use curried syntax.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="UseBoundStore" type="UseBoundStore<StoreApi<TState>>">
+  A hook function combined with store API methods. Can be called in two ways:
+  
+  - **Without selector**: `const state = useStore()` - Returns the entire state
+  - **With selector**: `const value = useStore(state => state.value)` - Returns selected value
+  
+  The hook also includes all `StoreApi` methods:
+  - `getState()`: Get current state
+  - `setState()`: Update state
+  - `subscribe()`: Subscribe to state changes
+  - `getInitialState()`: Get initial state
+</ResponseField>
+
+## Types
+
+```typescript
+type UseBoundStore<TStoreApi extends ReadonlyStoreApi<unknown>> = TStoreApi & {
+  (): ExtractState<TStoreApi>;
+  <U>(selector: (state: ExtractState<TStoreApi>) => U): U;
+};
+
+type StoreStateInitializer<TState> = (
+  set: SetState<TState>,
+  get: GetState<TState>,
+  store: StoreApi<TState>
+) => TState;
+```
+
+## Examples
+
+### Basic Counter Store
+
+```typescript
+import { createReactStore } from "@zayne-labs/toolkit-react";
+
+type CounterState = {
+  count: number;
+  increment: () => void;
+  decrement: () => void;
+  reset: () => void;
+};
+
+const useCounterStore = createReactStore<CounterState>((set) => ({
+  count: 0,
+  increment: () => set((state) => ({ count: state.count + 1 })),
+  decrement: () => set((state) => ({ count: state.count - 1 })),
+  reset: () => set({ count: 0 }),
+}));
+
+function Counter() {
+  const count = useCounterStore((state) => state.count);
+  const increment = useCounterStore((state) => state.increment);
+  const decrement = useCounterStore((state) => state.decrement);
+  
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={increment}>+</button>
+      <button onClick={decrement}>-</button>
+    </div>
+  );
+}
+```
+
+### Using Entire State
+
+```typescript
+import { createReactStore } from "@zayne-labs/toolkit-react";
+
+type TodoState = {
+  todos: Array<{ id: string; text: string; done: boolean }>;
+  addTodo: (text: string) => void;
+  toggleTodo: (id: string) => void;
+};
+
+const useTodoStore = createReactStore<TodoState>((set) => ({
+  todos: [],
+  addTodo: (text) =>
+    set((state) => ({
+      todos: [...state.todos, { id: crypto.randomUUID(), text, done: false }],
+    })),
+  toggleTodo: (id) =>
+    set((state) => ({
+      todos: state.todos.map((todo) =>
+        todo.id === id ? { ...todo, done: !todo.done } : todo
+      ),
+    })),
+}));
+
+function TodoList() {
+  // Get entire state
+  const { todos, toggleTodo } = useTodoStore();
+  
+  return (
+    <ul>
+      {todos.map((todo) => (
+        <li key={todo.id} onClick={() => toggleTodo(todo.id)}>
+          {todo.text} {todo.done && "✓"}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Curried Syntax
+
+```typescript
+import { createReactStore } from "@zayne-labs/toolkit-react";
+
+// Create store factory
+const createUserStore = createReactStore<UserState>();
+
+// Use factory to create store
+const useUserStore = createUserStore((set, get) => ({
+  user: null,
+  login: (user) => set({ user }),
+  logout: () => set({ user: null }),
+  isLoggedIn: () => get().user !== null,
+}));
+```
+
+### Accessing Store API Methods
+
+```typescript
+import { createReactStore } from "@zayne-labs/toolkit-react";
+
+type SettingsState = {
+  theme: "light" | "dark";
+  language: string;
+  toggleTheme: () => void;
+};
+
+const useSettingsStore = createReactStore<SettingsState>((set) => ({
+  theme: "light",
+  language: "en",
+  toggleTheme: () => set((state) => ({
+    theme: state.theme === "light" ? "dark" : "light",
+  })),
+}));
+
+// Access store methods outside of React
+function saveSettings() {
+  const currentSettings = useSettingsStore.getState();
+  localStorage.setItem("settings", JSON.stringify(currentSettings));
+}
+
+// Subscribe to changes outside of React
+const unsubscribe = useSettingsStore.subscribe((state, prevState) => {
+  console.log("Settings changed from", prevState, "to", state);
+});
+```
+
+### Complex Store with Middleware
+
+```typescript
+import { createReactStore } from "@zayne-labs/toolkit-react";
+
+type CartState = {
+  items: Array<{ id: string; name: string; price: number; quantity: number }>;
+  total: number;
+  addItem: (item: { id: string; name: string; price: number }) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  clear: () => void;
+};
+
+const useCartStore = createReactStore<CartState>((set, get) => ({
+  items: [],
+  total: 0,
+  addItem: (item) =>
+    set((state) => {
+      const existingItem = state.items.find((i) => i.id === item.id);
+      
+      if (existingItem) {
+        return {
+          items: state.items.map((i) =>
+            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+          ),
+          total: state.total + item.price,
+        };
+      }
+      
+      return {
+        items: [...state.items, { ...item, quantity: 1 }],
+        total: state.total + item.price,
+      };
+    }),
+  removeItem: (id) =>
+    set((state) => {
+      const item = state.items.find((i) => i.id === id);
+      if (!item) return state;
+      
+      return {
+        items: state.items.filter((i) => i.id !== id),
+        total: state.total - item.price * item.quantity,
+      };
+    }),
+  updateQuantity: (id, quantity) =>
+    set((state) => {
+      const item = state.items.find((i) => i.id === id);
+      if (!item) return state;
+      
+      const priceDiff = (quantity - item.quantity) * item.price;
+      
+      return {
+        items: state.items.map((i) => (i.id === id ? { ...i, quantity } : i)),
+        total: state.total + priceDiff,
+      };
+    }),
+  clear: () => set({ items: [], total: 0 }),
+}));
+
+function Cart() {
+  const items = useCartStore((state) => state.items);
+  const total = useCartStore((state) => state.total);
+  const removeItem = useCartStore((state) => state.removeItem);
+  
+  return (
+    <div>
+      <h2>Cart (${total.toFixed(2)})</h2>
+      {items.map((item) => (
+        <div key={item.id}>
+          {item.name} x {item.quantity} - ${(item.price * item.quantity).toFixed(2)}
+          <button onClick={() => removeItem(item.id)}>Remove</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Best Practices
+
+1. **Use selectors**: Always use selectors to avoid unnecessary re-renders
+2. **Keep actions in the store**: Define actions as methods in the store state
+3. **Derive state when possible**: Compute derived values in selectors rather than storing them
+4. **Use TypeScript**: Type your state for better developer experience
+5. **Split large stores**: Consider splitting very large stores into smaller, focused stores

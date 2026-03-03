@@ -1,0 +1,366 @@
+---
+title: "File Validation"
+description: "Validate files based on type, size, count, and custom rules with comprehensive error handling."
+---
+
+## Overview
+
+The file validation utilities provide a robust way to validate file inputs against various constraints including file type, size, count limits, and custom validation logic. Both synchronous and asynchronous variants are available.
+
+## Import
+
+```typescript
+import { 
+  handleFileValidation, 
+  handleFileValidationAsync,
+  formatBytes,
+  toBytes,
+  generateFileID
+} from "@zayne-labs/toolkit-core";
+```
+
+## Functions
+
+### handleFileValidation
+
+Validates files synchronously against the provided settings.
+
+#### Signature
+
+```typescript
+function handleFileValidation(
+  options: FileValidationOptions
+): FileValidationResult
+```
+
+#### Parameters
+
+<ParamField path="options" type="FileValidationOptions" required>
+  <ParamField path="options.newFiles" type="File[] | FileList | FileMeta[]" required>
+    The files to validate.
+  </ParamField>
+  
+  <ParamField path="options.existingFiles" type="File[] | FileMeta[]">
+    Array of existing files to check against for duplicates and max count.
+  </ParamField>
+  
+  <ParamField path="options.settings" type="FileValidationSettings">
+    Validation rules configuration.
+    
+    <ParamField path="settings.allowedFileTypes" type="string[]">
+      Array of allowed file extensions or MIME types (e.g., `[".jpg", ".png", "image/*"]`).
+    </ParamField>
+    
+    <ParamField path="settings.maxFileSize" type="number | { kb: number } | { mb: number } | { gb: number }">
+      Maximum file size. Can be specified in bytes or using an object with kb/mb/gb properties.
+    </ParamField>
+    
+    <ParamField path="settings.maxFileCount" type="number">
+      Maximum number of files allowed (including existing files).
+    </ParamField>
+    
+    <ParamField path="settings.rejectDuplicateFiles" type="boolean">
+      Whether to reject duplicate files. Default is `false`.
+    </ParamField>
+    
+    <ParamField path="settings.validator" type="(context: { file: File | FileMeta }) => ValidationError | null">
+      Custom validation function. Return an error object to reject the file, or `null`/`undefined` to accept.
+    </ParamField>
+  </ParamField>
+  
+  <ParamField path="options.hooks" type="FileValidationHooks">
+    Callbacks for handling validation events.
+    
+    <ParamField path="hooks.onSuccessEach" type="(context: FileValidationSuccessContextEach) => void">
+      Called when an individual file passes validation.
+    </ParamField>
+    
+    <ParamField path="hooks.onSuccessBatch" type="(context: FileValidationSuccessContextBatch) => void">
+      Called after all validation if any files passed.
+    </ParamField>
+    
+    <ParamField path="hooks.onErrorEach" type="(context: FileValidationErrorContextEach) => void">
+      Called when an individual file fails validation.
+    </ParamField>
+    
+    <ParamField path="hooks.onErrorBatch" type="(context: FileValidationErrorContextBatch) => void">
+      Called after all validation if any files failed.
+    </ParamField>
+  </ParamField>
+</ParamField>
+
+#### Return Value
+
+<ResponseField name="FileValidationResult" type="object">
+  <ResponseField name="validFiles" type="(File | FileMeta)[]">
+    Array of files that passed validation.
+  </ResponseField>
+  
+  <ResponseField name="errors" type="FileValidationErrorContextEach[]">
+    Array of validation errors for files that failed.
+  </ResponseField>
+</ResponseField>
+
+### handleFileValidationAsync
+
+Async version of `handleFileValidation` that supports async validators and hooks.
+
+#### Signature
+
+```typescript
+function handleFileValidationAsync(
+  options: FileValidationOptions<"async">
+): Promise<FileValidationResult>
+```
+
+Parameters and return value are the same as `handleFileValidation`, but the `validator` and all hooks can return Promises.
+
+## Helper Functions
+
+### formatBytes
+
+Formats bytes into a human-readable string.
+
+```typescript
+function formatBytes(bytes: number, decimals?: number): string
+```
+
+### toBytes
+
+Converts size object to bytes.
+
+```typescript
+function toBytes(
+  size: { kb: number } | { mb: number } | { gb: number } | { tb: number }
+): number
+```
+
+### generateFileID
+
+Generates a unique ID for a file.
+
+```typescript
+function generateFileID(file: File | FileMeta): string
+```
+
+## Usage Examples
+
+### Basic File Validation
+
+```typescript
+const fileInput = document.querySelector<HTMLInputElement>("#fileInput");
+
+const result = handleFileValidation({
+  newFiles: fileInput?.files,
+  settings: {
+    allowedFileTypes: [".jpg", ".png", ".pdf"],
+    maxFileSize: { mb: 5 },
+    maxFileCount: 10
+  }
+});
+
+if (result.errors.length > 0) {
+  console.error("Validation errors:", result.errors);
+} else {
+  console.log("Valid files:", result.validFiles);
+}
+```
+
+### With Validation Hooks
+
+```typescript
+const result = handleFileValidation({
+  newFiles: files,
+  settings: {
+    allowedFileTypes: ["image/*"],
+    maxFileSize: { mb: 2 }
+  },
+  hooks: {
+    onErrorEach: ({ file, message, code }) => {
+      console.error(`File "${file.name}" failed: ${message} (${code})`);
+    },
+    onSuccessBatch: ({ validFiles, message }) => {
+      console.log(message);
+      console.log(`${validFiles.length} files validated successfully`);
+    }
+  }
+});
+```
+
+### Custom Validator
+
+```typescript
+const result = handleFileValidation({
+  newFiles: files,
+  settings: {
+    allowedFileTypes: ["image/*"],
+    validator: ({ file }) => {
+      // Reject files with specific names
+      if (file.name.includes("temp")) {
+        return {
+          code: "invalid-filename",
+          message: "Temporary files are not allowed"
+        };
+      }
+      
+      // Check image dimensions (requires reading the file)
+      // This example is simplified - actual implementation would need FileReader
+      return null; // Accept the file
+    }
+  }
+});
+```
+
+### Async Validation
+
+```typescript
+const result = await handleFileValidationAsync({
+  newFiles: files,
+  settings: {
+    allowedFileTypes: ["image/*"],
+    maxFileSize: { mb: 5 },
+    validator: async ({ file }) => {
+      // Async validation - e.g., check image dimensions
+      const dimensions = await getImageDimensions(file);
+      
+      if (dimensions.width > 4000 || dimensions.height > 4000) {
+        return {
+          code: "image-too-large",
+          message: "Image dimensions must be 4000x4000 or smaller"
+        };
+      }
+      
+      return null;
+    }
+  },
+  hooks: {
+    onSuccessBatch: async ({ validFiles }) => {
+      // Async hook - e.g., upload files
+      await uploadFiles(validFiles);
+    }
+  }
+});
+```
+
+### Duplicate Detection
+
+```typescript
+const existingFiles = [
+  { id: "1", name: "document.pdf", size: 1024, type: "application/pdf" },
+  { id: "2", name: "image.jpg", size: 2048, type: "image/jpeg" }
+];
+
+const result = handleFileValidation({
+  newFiles: files,
+  existingFiles,
+  settings: {
+    rejectDuplicateFiles: true,
+    maxFileCount: 5
+  },
+  hooks: {
+    onErrorEach: ({ code, message, file }) => {
+      if (code === "duplicate-file") {
+        console.warn(`File "${file.name}" already exists`);
+      }
+    }
+  }
+});
+```
+
+### React Integration
+
+```tsx
+import { handleFileValidation } from "@zayne-labs/toolkit-core";
+import { useState } from "react";
+
+function FileUpload() {
+  const [files, setFiles] = useState<File[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const result = handleFileValidation({
+      newFiles: e.target.files,
+      existingFiles: files,
+      settings: {
+        allowedFileTypes: [".jpg", ".png", ".pdf"],
+        maxFileSize: { mb: 5 },
+        maxFileCount: 10
+      },
+      hooks: {
+        onErrorBatch: ({ errors }) => {
+          setErrors(errors.map(e => e.message));
+        },
+        onSuccessBatch: ({ validFiles }) => {
+          setFiles(prev => [...prev, ...validFiles as File[]]);
+          setErrors([]);
+        }
+      }
+    });
+  };
+
+  return (
+    <div>
+      <input type="file" multiple onChange={handleChange} />
+      {errors.length > 0 && (
+        <ul>
+          {errors.map((error, i) => (
+            <li key={i} style={{ color: "red" }}>{error}</li>
+          ))}
+        </ul>
+      )}
+      <p>{files.length} file(s) selected</p>
+    </div>
+  );
+}
+```
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `"file-too-large"` | File exceeds `maxFileSize` |
+| `"invalid-file-type"` | File type not in `allowedFileTypes` |
+| `"too-many-files"` | Files exceed `maxFileCount` |
+| `"duplicate-file"` | File already exists (when `rejectDuplicateFiles` is true) |
+| `"custom-validation-failed"` | Custom validator rejected the file |
+
+## Types
+
+### FileMeta
+
+```typescript
+type FileMeta = {
+  id: string;
+} & (
+  | {
+      name: string;
+      size: number | undefined;
+      type: string;
+      url: string;
+    }
+  | {
+      file: File;
+    }
+);
+```
+
+### FileValidationErrorContextEach
+
+```typescript
+type FileValidationErrorContextEach = {
+  code: string;
+  file: File | FileMeta;
+  message: string;
+} & (
+  | { cause: "custom-error"; originalError: unknown }
+  | { cause: keyof FileValidationSettings }
+);
+```
+
+## Notes
+
+- File size can be specified as a number (bytes) or using `{ mb: 5 }`, `{ kb: 500 }`, etc.
+- File types can be MIME types (`"image/jpeg"`) or extensions (`".jpg"`)
+- Wildcards are supported for MIME types (`"image/*"`, `"video/*"`)
+- Duplicate detection is based on file name and size
+- Use async variant when validation requires I/O operations (reading file contents, API calls, etc.)

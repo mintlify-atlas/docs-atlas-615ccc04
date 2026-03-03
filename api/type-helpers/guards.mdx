@@ -1,0 +1,550 @@
+---
+title: "Type Guards"
+description: "Runtime type checking functions with TypeScript type narrowing"
+---
+
+Type guards are functions that perform runtime checks and narrow TypeScript types, enabling type-safe code execution.
+
+## Primitive Type Guards
+
+### isString
+
+Checks if a value is a string.
+
+```typescript language="typescript"
+function isString(value: unknown): value is string
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a string
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = "hello";
+
+if (isString(value)) {
+  // TypeScript knows value is a string here
+  console.log(value.toUpperCase()); // OK
+}
+```
+
+### isNumber
+
+Checks if a value is a number.
+
+```typescript language="typescript"
+function isNumber(value: unknown): value is number
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a number
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = 42;
+
+if (isNumber(value)) {
+  console.log(value.toFixed(2)); // OK
+}
+```
+
+### isBoolean
+
+Checks if a value is a boolean.
+
+```typescript language="typescript"
+function isBoolean(value: unknown): value is boolean
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a boolean
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = true;
+
+if (isBoolean(value)) {
+  console.log(value ? "yes" : "no"); // OK
+}
+```
+
+### isSymbol
+
+Checks if a value is a symbol.
+
+```typescript language="typescript"
+function isSymbol(value: unknown): value is symbol
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a symbol
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = Symbol("id");
+
+if (isSymbol(value)) {
+  console.log(value.description); // OK
+}
+```
+
+## Collection Type Guards
+
+### isArray
+
+Checks if a value is an array with optional type parameter for array items.
+
+```typescript language="typescript"
+function isArray<TArray>(value: unknown): value is TArray[]
+```
+
+<ParamField path="TArray" type="type parameter">
+  The type of array items
+</ParamField>
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is an array
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = [1, 2, 3];
+
+if (isArray<number>(value)) {
+  // TypeScript knows value is number[] here
+  const sum = value.reduce((a, b) => a + b, 0); // OK
+}
+```
+
+### isSet
+
+Checks if a value is a Set.
+
+```typescript language="typescript"
+function isSet<TSet extends Set<unknown>>(value: unknown): value is TSet
+```
+
+<ParamField path="TSet" type="Set<unknown>">
+  The Set type
+</ParamField>
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a Set
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = new Set([1, 2, 3]);
+
+if (isSet(value)) {
+  console.log(value.size); // OK
+  value.add(4); // OK
+}
+```
+
+### isMap
+
+Checks if a value is a Map.
+
+```typescript language="typescript"
+function isMap<TMap extends Map<unknown, unknown>>(value: unknown): value is TMap
+```
+
+<ParamField path="TMap" type="Map<unknown, unknown>">
+  The Map type
+</ParamField>
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a Map
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = new Map([["key", "value"]]);
+
+if (isMap(value)) {
+  console.log(value.get("key")); // OK
+  value.set("newKey", "newValue"); // OK
+}
+```
+
+## Object Type Guards
+
+### isObject
+
+Checks if a value is an object (including arrays, null is excluded).
+
+```typescript language="typescript"
+function isObject<TObject extends object>(value: unknown): value is TObject
+```
+
+<ParamField path="TObject" type="object">
+  The object type
+</ParamField>
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is an object
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = { name: "Alice" };
+
+if (isObject(value)) {
+  // TypeScript knows value is an object
+  console.log(Object.keys(value)); // OK
+}
+```
+
+### isObjectAndNotArray
+
+Checks if a value is an object but not an array.
+
+```typescript language="typescript"
+function isObjectAndNotArray<TObject = UnknownObject>(value: unknown): value is TObject
+```
+
+<ParamField path="TObject" type="object" default="UnknownObject">
+  The object type
+</ParamField>
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is an object and not an array
+
+#### Example
+
+```typescript language="typescript"
+const obj: unknown = { name: "Alice" };
+const arr: unknown = [1, 2, 3];
+
+isObjectAndNotArray(obj); // true
+isObjectAndNotArray(arr); // false
+```
+
+### isPlainObject
+
+Checks if a value is a plain object (created by Object literal or Object.create).
+
+```typescript language="typescript"
+function isPlainObject<TPlainObject extends UnknownObjectWithAnyKey = UnknownObject>(
+  value: unknown
+): value is TPlainObject
+```
+
+<ParamField path="TPlainObject" type="object" default="UnknownObject">
+  The plain object type
+</ParamField>
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a plain object
+
+#### Example
+
+```typescript language="typescript"
+class MyClass {}
+
+isPlainObject({}); // true
+isPlainObject({ name: "Alice" }); // true
+isPlainObject(new MyClass()); // false
+isPlainObject([]); // false
+isPlainObject(null); // false
+```
+
+## Function Type Guards
+
+### isFunction
+
+Checks if a value is a function.
+
+```typescript language="typescript"
+function isFunction<TFunction extends AnyFunction>(value: unknown): value is TFunction
+```
+
+<ParamField path="TFunction" type="AnyFunction">
+  The function type
+</ParamField>
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a function
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = () => "hello";
+
+if (isFunction(value)) {
+  const result = value(); // OK
+}
+```
+
+### isAsyncFunction
+
+Checks if a value is an async function.
+
+```typescript language="typescript"
+function isAsyncFunction<TAsyncFunction extends AnyAsyncFunction>(
+  value: unknown
+): value is TAsyncFunction
+```
+
+<ParamField path="TAsyncFunction" type="AnyAsyncFunction">
+  The async function type
+</ParamField>
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is an async function
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = async () => "hello";
+
+if (isAsyncFunction(value)) {
+  const result = await value(); // OK
+}
+```
+
+## Browser/Web API Type Guards
+
+### isFormData
+
+Checks if a value is FormData.
+
+```typescript language="typescript"
+function isFormData(value: unknown): value is FormData
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is FormData
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = new FormData();
+
+if (isFormData(value)) {
+  value.append("key", "value"); // OK
+}
+```
+
+### isFile
+
+Checks if a value is a File.
+
+```typescript language="typescript"
+function isFile(value: unknown): value is File
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a File
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = new File(["content"], "file.txt");
+
+if (isFile(value)) {
+  console.log(value.name); // OK
+  console.log(value.size); // OK
+}
+```
+
+### isBlob
+
+Checks if a value is a Blob.
+
+```typescript language="typescript"
+function isBlob(value: unknown): value is Blob
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a Blob
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = new Blob(["data"]);
+
+if (isBlob(value)) {
+  console.log(value.size); // OK
+  console.log(value.type); // OK
+}
+```
+
+## Utility Type Guards
+
+### isPromise
+
+Checks if a value is a Promise.
+
+```typescript language="typescript"
+function isPromise(value: unknown): value is Promise<unknown>
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a Promise
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = Promise.resolve("data");
+
+if (isPromise(value)) {
+  const result = await value; // OK
+}
+```
+
+### isIterable
+
+Checks if an object is iterable.
+
+```typescript language="typescript"
+function isIterable<TIterable>(obj: object): obj is Iterable<TIterable>
+```
+
+<ParamField path="TIterable" type="type parameter">
+  The type of iterable items
+</ParamField>
+
+<ParamField path="obj" type="object">
+  The object to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the object is iterable
+
+#### Example
+
+```typescript language="typescript"
+const value = [1, 2, 3];
+
+if (isIterable<number>(value)) {
+  for (const item of value) {
+    console.log(item); // OK
+  }
+}
+```
+
+## JSON Type Guards
+
+### isJsonString
+
+Checks if a value is a valid JSON string.
+
+```typescript language="typescript"
+function isJsonString(value: unknown): value is string
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value is a valid JSON string
+
+#### Example
+
+```typescript language="typescript"
+const value: unknown = '{"name":"Alice"}';
+
+if (isJsonString(value)) {
+  const parsed = JSON.parse(value); // Safe to parse
+}
+```
+
+### isJSONSerializable
+
+Checks if a value can be serialized to JSON.
+
+```typescript language="typescript"
+function isJSONSerializable(value: unknown): boolean
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the value can be serialized to JSON
+
+#### Example
+
+```typescript language="typescript"
+isJSONSerializable({ name: "Alice" }); // true
+isJSONSerializable("string"); // true
+isJSONSerializable(42); // true
+isJSONSerializable(undefined); // false
+isJSONSerializable(() => {}); // false
+```
+
+### isSerializableObject
+
+Checks if an object is serializable (plain object, array, or has toJSON method).
+
+```typescript language="typescript"
+function isSerializableObject(value: unknown): boolean
+```
+
+<ParamField path="value" type="unknown">
+  The value to check
+</ParamField>
+
+**Returns:** `boolean` - `true` if the object is serializable
+
+#### Example
+
+```typescript language="typescript"
+isSerializableObject({ name: "Alice" }); // true
+isSerializableObject([1, 2, 3]); // true
+isSerializableObject(new Date()); // true (has toJSON)
+isSerializableObject(new Map()); // false
+```

@@ -1,0 +1,415 @@
+---
+title: General Utilities
+description: Object manipulation, JSON parsing, and helper functions for common tasks
+---
+
+## Object Utilities
+
+### pickKeys
+
+Create a new object with only the specified keys from the original object.
+
+```typescript
+import { pickKeys } from '@zayne-labs/toolkit-core';
+
+const user = {
+  id: 1,
+  name: 'John Doe',
+  email: 'john@example.com',
+  password: 'secret',
+  role: 'admin'
+};
+
+const publicUser = pickKeys(user, ['id', 'name', 'email']);
+// Result: { id: 1, name: 'John Doe', email: 'john@example.com' }
+```
+
+**Type Signature:**
+```typescript
+const pickKeys: <
+  TObject extends UnknownObjectWithAnyValue,
+  const TPickArray extends Array<keyof TObject>,
+  TPickedKeys extends ExtractUnion<TPickArray> = ExtractUnion<TPickArray>
+>(
+  initialObject: TObject,
+  keysToPick: TPickArray
+) => Prettify<Pick<TObject, TPickedKeys>>
+```
+
+<Note>
+  TypeScript automatically infers the exact shape of the returned object based on the keys you pick.
+</Note>
+
+#### Alternative Implementations
+
+The package also exports alternative implementations optimized for different use cases:
+
+- `pickKeysWithReduce` - Uses Array.reduce for functional programming style
+- `pickKeysWithFilter` - Uses Array.filter and Object.entries
+
+---
+
+### omitKeys
+
+Create a new object excluding the specified keys from the original object.
+
+```typescript
+import { omitKeys } from '@zayne-labs/toolkit-core';
+
+const user = {
+  id: 1,
+  name: 'John Doe',
+  email: 'john@example.com',
+  password: 'secret',
+  token: 'abc123'
+};
+
+const safeUser = omitKeys(user, ['password', 'token']);
+// Result: { id: 1, name: 'John Doe', email: 'john@example.com' }
+```
+
+**Type Signature:**
+```typescript
+const omitKeys: <
+  TObject extends UnknownObject,
+  const TOmitArray extends Array<keyof TObject>,
+  TOmittedKeys extends ExtractUnion<TOmitArray> = ExtractUnion<TOmitArray>
+>(
+  initialObject: TObject,
+  keysToOmit: TOmitArray
+) => Prettify<Omit<TObject, TOmittedKeys>>
+```
+
+#### Alternative Implementations
+
+- `omitKeysWithReduce` - Uses Array.reduce
+- `omitKeysWithFilter` - Uses Array.filter and Object.entries
+- `omitKeysWithDelete` - Uses shallow copy and Reflect.deleteProperty
+
+---
+
+## JSON Utilities
+
+### parseJSON
+
+Safely parse JSON strings with fallback support and proper type inference.
+
+```typescript
+import { parseJSON } from '@zayne-labs/toolkit-core';
+
+// Basic usage
+const data = parseJSON<{ name: string }>('{"name": "John"}');
+// Result: { name: 'John' }
+
+// With fallback value
+const settings = parseJSON<UserSettings>(
+  localStorage.getItem('settings'),
+  { theme: 'dark', notifications: true }
+);
+
+// Handles invalid JSON gracefully
+const invalid = parseJSON('not valid json');
+// Result: null (logs error to console)
+```
+
+**Type Signature:**
+```typescript
+type ParseJSON = {
+  <TResult>(value: string): TResult;
+  <TResult>(value: string | null | undefined): TResult | null;
+  <TResult>(value: string | null | undefined, fallbackValue: TResult): TResult;
+}
+```
+
+<Warning>
+  If parsing fails, `parseJSON` will log the error to the console and return the fallback value (or null if no fallback is provided).
+</Warning>
+
+---
+
+## Helper Functions
+
+### toArray
+
+Convert a value or array to an array.
+
+```typescript
+import { toArray } from '@zayne-labs/toolkit-core';
+
+toArray('hello');        // ['hello']
+toArray(['a', 'b']);     // ['a', 'b']
+toArray(42);             // [42]
+```
+
+**Type Signature:**
+```typescript
+const toArray: <TValue>(
+  value: TValue | TValue[]
+) => TValue[]
+```
+
+---
+
+### dataAttr
+
+Convert a boolean condition to a data attribute value for React/HTML.
+
+```typescript
+import { dataAttr } from '@zayne-labs/toolkit-core';
+
+const isActive = true;
+
+<div data-active={dataAttr(isActive)}>
+  Content
+</div>
+// Renders: <div data-active="true">Content</div>
+
+<div data-disabled={dataAttr(false)}>
+  Content
+</div>
+// Renders: <div>Content</div> (attribute not present)
+```
+
+**Type Signature:**
+```typescript
+const dataAttr: (
+  condition: unknown
+) => boolean
+```
+
+<Note>
+  Returns `"true"` (string) when the condition is truthy, or `undefined` when falsy. This is useful for conditional data attributes in React.
+</Note>
+
+---
+
+### tw
+
+Template literal tag for Tailwind CSS classes that preserves formatting.
+
+```typescript
+import { tw } from '@zayne-labs/toolkit-core';
+
+const className = tw`
+  flex items-center justify-between
+  px-4 py-2
+  bg-blue-500 text-white
+  rounded-lg shadow-md
+`;
+// Result: "flex items-center justify-between px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md"
+```
+
+**Type Signature:**
+```typescript
+const tw: (
+  strings: TemplateStringsArray,
+  ...values: Array<'Not-Allowed'>
+) => string
+```
+
+<Warning>
+  The `tw` function does not accept template interpolations to maintain type safety with Tailwind classes.
+</Warning>
+
+---
+
+### css
+
+Template literal tag for CSS strings with interpolation support.
+
+```typescript
+import { css } from '@zayne-labs/toolkit-core';
+
+const color = '#3b82f6';
+const padding = 16;
+
+const styles = css`
+  background-color: ${color};
+  padding: ${padding}px;
+  border-radius: 8px;
+`;
+```
+
+**Type Signature:**
+```typescript
+const css: (
+  strings: TemplateStringsArray,
+  ...values: Array<number | string | undefined>
+) => string
+```
+
+---
+
+## Navigation Utilities
+
+### createSearchParams
+
+Create URLSearchParams from various input formats.
+
+```typescript
+import { createSearchParams } from '@zayne-labs/toolkit-core';
+
+// From string
+const params1 = createSearchParams('?foo=bar&baz=qux');
+
+// From object
+const params2 = createSearchParams({ foo: 'bar', baz: 'qux' });
+
+// From key-value pairs
+const params3 = createSearchParams([['foo', 'bar'], ['baz', 'qux']]);
+
+// With array values
+const params4 = createSearchParams({ tags: ['react', 'typescript'] });
+// Result: tags=react&tags=typescript
+```
+
+**Type Signature:**
+```typescript
+type URLSearchParamsInit =
+  | string
+  | [string, string][]
+  | Record<string, string | string[]>
+  | URLSearchParams;
+
+const createSearchParams: (
+  paramsInit?: URLSearchParamsInit
+) => URLSearchParams
+```
+
+---
+
+### formatUrl
+
+Format URL information from string or object.
+
+```typescript
+import { formatUrl } from '@zayne-labs/toolkit-core';
+
+// From string
+const result1 = formatUrl('/dashboard?tab=overview');
+
+// From object
+const result2 = formatUrl({
+  pathname: '/dashboard',
+  search: { tab: 'overview', page: '1' },
+  hash: '#section-1'
+});
+
+console.log(result2.urlString); // Full URL string
+console.log(result2.urlObject.pathname); // '/dashboard'
+console.log(result2.urlObject.search); // URLSearchParams instance
+```
+
+**Type Signature:**
+```typescript
+type PartialURLInfo = {
+  hash?: string;
+  pathname?: string;
+  search?: URLSearchParamsInit;
+  searchString?: string;
+  state?: unknown;
+};
+
+const formatUrl: (
+  newURL: string | PartialURLInfo
+) => {
+  urlObject: URLInfoObject;
+  urlString: string;
+}
+```
+
+---
+
+### pushState / replaceState
+
+Update browser history and URL without page reload.
+
+```typescript
+import { pushState, replaceState } from '@zayne-labs/toolkit-core';
+
+// Push new state
+pushState('/dashboard', { state: { userId: 123 } });
+
+// Replace current state
+replaceState({ 
+  pathname: '/profile', 
+  search: { tab: 'settings' } 
+});
+
+// With search params as object
+pushState({
+  pathname: '/search',
+  search: { q: 'typescript', filter: 'recent' }
+});
+```
+
+**Type Signature:**
+```typescript
+const pushState: (
+  url: string | PartialURLInfo,
+  options?: { state?: unknown }
+) => void
+
+const replaceState: (
+  url: string | PartialURLInfo,
+  options?: { state?: unknown }
+) => void
+```
+
+---
+
+### hardNavigate
+
+Perform a hard navigation (full page load).
+
+```typescript
+import { hardNavigate } from '@zayne-labs/toolkit-core';
+
+// Navigate to new page
+hardNavigate('/login');
+
+// Replace current page
+hardNavigate('/home', 'replace');
+
+// With full URL object
+hardNavigate({
+  pathname: '/checkout',
+  search: { step: '2' }
+});
+```
+
+**Type Signature:**
+```typescript
+const hardNavigate: (
+  url: string | Partial<PartialURLInfo> | URL,
+  type?: 'assign' | 'replace'
+) => void
+```
+
+<Warning>
+  `hardNavigate` performs a full page reload. Use `pushState` or `replaceState` for SPA navigation.
+</Warning>
+
+---
+
+## Best Practices
+
+<Tabs>
+  <Tab title="Performance">
+    - Use `pickKeys` or `omitKeys` instead of manual object destructuring for better type safety
+    - The alternative implementations (`pickKeysWithReduce`, etc.) are provided for optimization - benchmark your specific use case
+    - `parseJSON` is safe to use in hot paths as it handles errors gracefully
+  </Tab>
+  
+  <Tab title="Type Safety">
+    - Let TypeScript infer types from `pickKeys` and `omitKeys` rather than explicitly typing the result
+    - Use the generic parameter in `parseJSON` to get proper type checking
+    - The `tw` function prevents runtime interpolation to maintain Tailwind IntelliSense
+  </Tab>
+  
+  <Tab title="Browser Compatibility">
+    - Navigation utilities use modern browser APIs (History API, URLSearchParams)
+    - Include polyfills if you need to support older browsers
+    - Use feature detection for SSR/Node.js environments
+  </Tab>
+</Tabs>

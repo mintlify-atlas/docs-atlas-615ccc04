@@ -1,0 +1,664 @@
+---
+title: State Management
+description: Lightweight, reactive stores for managing application state, localStorage, and browser location
+---
+
+## Overview
+
+The toolkit-core package provides a powerful yet lightweight state management solution with three specialized stores:
+
+- **createStore** - General-purpose reactive state management
+- **createExternalStorageStore** - Persistent state with localStorage/sessionStorage
+- **createLocationStore** - Browser location and history management
+
+All stores share a consistent API and support TypeScript inference, subscriptions, and middleware.
+
+---
+
+## createStore
+
+A lightweight, framework-agnostic state management solution.
+
+### Basic Usage
+
+```typescript
+import { createStore } from '@zayne-labs/toolkit-core';
+
+// Create a counter store
+const counterStore = createStore(() => ({
+  count: 0
+}));
+
+// Subscribe to changes
+const unsubscribe = counterStore.subscribe((state, prevState) => {
+  console.log('Count changed:', prevState.count, '->', state.count);
+});
+
+// Update state
+counterStore.setState({ count: 1 });
+
+// Update with function
+counterStore.setState((prev) => ({ count: prev.count + 1 }));
+
+// Cleanup
+unsubscribe();
+```
+
+### Type Signature
+
+```typescript
+type StoreStateInitializer<TState> = (
+  setState: (state: Partial<TState>) => void,
+  getState: () => TState,
+  storeApi: StoreApi<TState>
+) => TState;
+
+type CreateStoreOptions<TState> = {
+  equalityFn?: (a: TState, b: TState) => boolean;
+  shouldNotifySync?: boolean;
+  plugins?: StorePlugin[];
+};
+
+const createStore: <TState>(
+  storeStateInitializer: StoreStateInitializer<TState>,
+  storeOptions?: CreateStoreOptions<TState>
+) => StoreApi<TState>
+```
+
+### Store API
+
+<Tabs>
+  <Tab title="getState">
+    Get the current state of the store.
+    
+    ```typescript
+    const state = counterStore.getState();
+    console.log(state.count); // 0
+    ```
+  </Tab>
+  
+  <Tab title="setState">
+    Update the store state. Accepts partial state or updater function.
+    
+    ```typescript
+    // Partial update
+    counterStore.setState({ count: 5 });
+    
+    // Updater function
+    counterStore.setState((prev) => ({ count: prev.count + 1 }));
+    
+    // With options
+    counterStore.setState({ count: 0 }, {
+      shouldNotifySync: true,
+      shouldReplace: false
+    });
+    ```
+    
+    **Options:**
+    - `shouldNotifySync`: Notify listeners synchronously (default: false)
+    - `shouldReplace`: Replace entire state instead of merging (default: false)
+    - `onNotifySync`: Callback when notifying synchronously
+    - `onNotifyViaBatch`: Callback when notifying via batch
+  </Tab>
+  
+  <Tab title="subscribe">
+    Subscribe to state changes.
+    
+    ```typescript
+    const unsubscribe = counterStore.subscribe((state, prevState) => {
+      console.log('State changed:', state);
+    }, {
+      fireListenerImmediately: true
+    });
+    
+    // Cleanup when done
+    unsubscribe();
+    ```
+  </Tab>
+  
+  <Tab title="subscribe.withSelector">
+    Subscribe to a slice of state with custom equality checking.
+    
+    ```typescript
+    const userStore = createStore(() => ({
+      user: { name: 'John', age: 30 },
+      settings: { theme: 'dark' }
+    }));
+    
+    // Only triggers when user.name changes
+    userStore.subscribe.withSelector(
+      (state) => state.user.name,
+      (name, prevName) => {
+        console.log('Name changed:', prevName, '->', name);
+      },
+      {
+        equalityFn: (a, b) => a === b,
+        fireListenerImmediately: false
+      }
+    );
+    ```
+  </Tab>
+  
+  <Tab title="resetState">
+    Reset the store to its initial state.
+    
+    ```typescript
+    counterStore.resetState();
+    ```
+  </Tab>
+  
+  <Tab title="getInitialState">
+    Get the initial state of the store.
+    
+    ```typescript
+    const initialState = counterStore.getInitialState();
+    ```
+  </Tab>
+</Tabs>
+
+### Advanced Example: Todo Store
+
+```typescript
+import { createStore } from '@zayne-labs/toolkit-core';
+
+type Todo = {
+  id: string;
+  text: string;
+  completed: boolean;
+};
+
+type TodoStore = {
+  todos: Todo[];
+  addTodo: (text: string) => void;
+  toggleTodo: (id: string) => void;
+  removeTodo: (id: string) => void;
+};
+
+const todoStore = createStore<TodoStore>((set, get) => ({
+  todos: [],
+  
+  addTodo: (text) => {
+    const newTodo: Todo = {
+      id: crypto.randomUUID(),
+      text,
+      completed: false
+    };
+    set((state) => ({ todos: [...state.todos, newTodo] }));
+  },
+  
+  toggleTodo: (id) => {
+    set((state) => ({
+      todos: state.todos.map(todo =>
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo
+      )
+    }));
+  },
+  
+  removeTodo: (id) => {
+    set((state) => ({
+      todos: state.todos.filter(todo => todo.id !== id)
+    }));
+  }
+}));
+
+// Usage
+todoStore.getState().addTodo('Learn TypeScript');
+todoStore.getState().addTodo('Build awesome apps');
+todoStore.getState().toggleTodo(todoStore.getState().todos[0].id);
+
+// Subscribe to changes
+todoStore.subscribe((state) => {
+  console.log('Todos:', state.todos);
+});
+```
+
+<Note>
+  The store automatically batches updates for better performance. Multiple synchronous `setState` calls will be batched into a single notification.
+</Note>
+
+---
+
+## createExternalStorageStore
+
+Persist state to localStorage or sessionStorage with automatic synchronization across tabs.
+
+### Basic Usage
+
+```typescript
+import { createExternalStorageStore } from '@zayne-labs/toolkit-core';
+
+type UserPreferences = {
+  theme: 'light' | 'dark';
+  language: string;
+  notifications: boolean;
+};
+
+const preferencesStore = createExternalStorageStore<UserPreferences>({
+  key: 'user-preferences',
+  defaultValue: {
+    theme: 'light',
+    language: 'en',
+    notifications: true
+  },
+  storageArea: 'localStorage',
+  syncStateAcrossTabs: true
+});
+
+// Subscribe to changes
+preferencesStore.subscribe((state) => {
+  document.body.dataset.theme = state.theme;
+});
+
+// Update preferences
+preferencesStore.setState({ theme: 'dark' });
+```
+
+### Type Signature
+
+```typescript
+type StorageOptions<TState> = {
+  key: string;
+  defaultValue?: TState;
+  storageArea?: 'localStorage' | 'sessionStorage';
+  syncStateAcrossTabs?: boolean;
+  equalityFn?: (a: TState, b: TState) => boolean;
+  parser?: (value: string) => TState;
+  serializer?: (value: TState) => string;
+  partialize?: (state: TState) => Partial<TState>;
+  logger?: (error: unknown) => void;
+  shouldNotifySync?: boolean;
+};
+
+const createExternalStorageStore: <TState>(
+  options: StorageOptions<TState>
+) => StorageStoreApi<TState>
+```
+
+### Configuration Options
+
+<Tabs>
+  <Tab title="Required">
+    - `key`: Storage key for localStorage/sessionStorage
+    - Should be unique across your application
+  </Tab>
+  
+  <Tab title="Storage">
+    - `storageArea`: Choose `'localStorage'` (persistent) or `'sessionStorage'` (tab-scoped)
+    - `defaultValue`: Fallback value when storage is empty
+    - `parser`: Custom JSON parser (default: `JSON.parse`)
+    - `serializer`: Custom serializer (default: `JSON.stringify`)
+  </Tab>
+  
+  <Tab title="Synchronization">
+    - `syncStateAcrossTabs`: Sync changes across browser tabs (default: `true`)
+    - `equalityFn`: Custom equality function for state comparison
+    - `shouldNotifySync`: Notify listeners synchronously (default: `false`)
+  </Tab>
+  
+  <Tab title="Advanced">
+    - `partialize`: Transform state before saving (useful for excluding computed properties)
+    - `logger`: Custom error logger (default: `console.error`)
+  </Tab>
+</Tabs>
+
+### Storage Store API
+
+Extends the base store API with additional methods:
+
+```typescript
+// All base store methods (getState, setState, subscribe, etc.)
+
+// Remove from storage and reset to default
+preferencesStore.removeState();
+
+// Reset to initial value (keeps in storage)
+preferencesStore.resetState();
+
+// Update with storage action control
+preferencesStore.setState(
+  { theme: 'dark' },
+  { storageAction: 'set-item' } // or 'remove-item'
+);
+```
+
+### Advanced Example: Auth Store
+
+```typescript
+import { createExternalStorageStore } from '@zayne-labs/toolkit-core';
+
+type AuthState = {
+  user: { id: string; name: string; email: string } | null;
+  token: string | null;
+  expiresAt: number | null;
+  isAuthenticated: boolean;
+};
+
+const authStore = createExternalStorageStore<AuthState>({
+  key: 'auth-state',
+  storageArea: 'localStorage',
+  defaultValue: {
+    user: null,
+    token: null,
+    expiresAt: null,
+    isAuthenticated: false
+  },
+  // Only persist user and token
+  partialize: (state) => ({
+    user: state.user,
+    token: state.token,
+    expiresAt: state.expiresAt
+  }),
+  syncStateAcrossTabs: true
+});
+
+// Login function
+const login = async (email: string, password: string) => {
+  const response = await fetch('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password })
+  });
+  
+  const { user, token, expiresAt } = await response.json();
+  
+  authStore.setState({
+    user,
+    token,
+    expiresAt,
+    isAuthenticated: true
+  });
+};
+
+// Logout function
+const logout = () => {
+  authStore.removeState();
+};
+
+// Check token expiration
+const checkAuth = () => {
+  const state = authStore.getState();
+  
+  if (state.expiresAt && Date.now() > state.expiresAt) {
+    logout();
+  }
+};
+
+// Subscribe to auth changes
+authStore.subscribe((state) => {
+  if (state.isAuthenticated) {
+    console.log('User logged in:', state.user);
+  } else {
+    console.log('User logged out');
+  }
+});
+```
+
+<Warning>
+  Be careful storing sensitive data in localStorage as it's accessible to all JavaScript on the page. Consider using sessionStorage for sensitive data or implementing encryption.
+</Warning>
+
+---
+
+## createLocationStore
+
+Manage browser location and history with reactive state.
+
+### Basic Usage
+
+```typescript
+import { createLocationStore } from '@zayne-labs/toolkit-core';
+
+const locationStore = createLocationStore();
+
+// Subscribe to location changes
+locationStore.subscribe((location, prevLocation) => {
+  console.log('Navigation:', prevLocation.pathname, '->', location.pathname);
+  console.log('Search params:', location.search);
+});
+
+// Navigate (pushState)
+locationStore.push('/dashboard', {
+  state: { from: '/home' }
+});
+
+// Navigate with search params
+locationStore.push({
+  pathname: '/search',
+  search: { q: 'typescript', filter: 'recent' },
+  hash: '#results'
+});
+
+// Replace current history entry
+locationStore.replace('/login');
+
+// Get current location
+const current = locationStore.getState();
+console.log(current.pathname);     // '/search'
+console.log(current.searchString); // 'q=typescript&filter=recent'
+console.log(current.search.get('q')); // 'typescript'
+```
+
+### Type Signature
+
+```typescript
+type LocationStoreInfo = {
+  pathname: string;
+  search: URLSearchParams;
+  searchString: string;
+  hash: string;
+  state?: unknown;
+};
+
+type LocationStoreOptions = {
+  defaultValues?: Partial<LocationStoreInfo>;
+  equalityFn?: (a: LocationStoreInfo, b: LocationStoreInfo) => boolean;
+  logger?: (error: unknown) => void;
+  shouldNotifySync?: boolean;
+};
+
+const createLocationStore: (
+  options?: LocationStoreOptions
+) => LocationStoreApi
+```
+
+### Location Store API
+
+<Tabs>
+  <Tab title="push">
+    Navigate to a new location (adds history entry).
+    
+    ```typescript
+    // String URL
+    locationStore.push('/dashboard');
+    
+    // URL object
+    locationStore.push({
+      pathname: '/users',
+      search: { page: '2', sort: 'name' },
+      hash: '#user-list',
+      state: { scrollPosition: 100 }
+    });
+    
+    // With options
+    locationStore.push('/profile', {
+      shouldNotifySync: true,
+      state: { editMode: true }
+    });
+    ```
+  </Tab>
+  
+  <Tab title="replace">
+    Replace the current history entry.
+    
+    ```typescript
+    locationStore.replace('/login');
+    
+    locationStore.replace({
+      pathname: '/checkout',
+      search: { step: '2' }
+    });
+    ```
+  </Tab>
+  
+  <Tab title="subscribe">
+    Subscribe to location changes (including back/forward navigation).
+    
+    ```typescript
+    const unsubscribe = locationStore.subscribe((location, prevLocation) => {
+      console.log('Route changed');
+      console.log('From:', prevLocation.pathname);
+      console.log('To:', location.pathname);
+      
+      // Access search params
+      const userId = location.search.get('userId');
+    });
+    ```
+  </Tab>
+  
+  <Tab title="subscribe.withSelector">
+    Subscribe to specific parts of the location.
+    
+    ```typescript
+    // Only triggers when pathname changes
+    locationStore.subscribe.withSelector(
+      (location) => location.pathname,
+      (pathname, prevPathname) => {
+        console.log('Path changed:', pathname);
+      }
+    );
+    
+    // Only triggers when specific search param changes
+    locationStore.subscribe.withSelector(
+      (location) => location.search.get('tab'),
+      (tab, prevTab) => {
+        console.log('Tab changed:', tab);
+      }
+    );
+    ```
+  </Tab>
+  
+  <Tab title="triggerPopstateEvent">
+    Manually trigger a popstate event.
+    
+    ```typescript
+    locationStore.triggerPopstateEvent({ customData: 'value' });
+    ```
+  </Tab>
+</Tabs>
+
+### Advanced Example: Router Integration
+
+```typescript
+import { createLocationStore } from '@zayne-labs/toolkit-core';
+
+type Route = {
+  path: string;
+  component: () => void;
+  title?: string;
+};
+
+const routes: Route[] = [
+  { path: '/', component: HomePage, title: 'Home' },
+  { path: '/about', component: AboutPage, title: 'About' },
+  { path: '/users', component: UsersPage, title: 'Users' },
+  { path: '/users/:id', component: UserDetailPage, title: 'User Details' }
+];
+
+const locationStore = createLocationStore();
+
+// Simple route matching
+const matchRoute = (pathname: string): Route | null => {
+  for (const route of routes) {
+    const pattern = new RegExp(`^${route.path.replace(/:[^/]+/g, '([^/]+)')}$`);
+    if (pattern.test(pathname)) {
+      return route;
+    }
+  }
+  return null;
+};
+
+// Subscribe to location changes
+locationStore.subscribe((location) => {
+  const route = matchRoute(location.pathname);
+  
+  if (route) {
+    // Update document title
+    if (route.title) {
+      document.title = route.title;
+    }
+    
+    // Render component
+    route.component();
+  } else {
+    // 404
+    NotFoundPage();
+  }
+});
+
+// Navigation helper
+const navigate = (path: string, options?: { replace?: boolean; state?: unknown }) => {
+  const method = options?.replace ? 'replace' : 'push';
+  locationStore[method](path, { state: options?.state });
+};
+
+// Usage
+navigate('/users');
+navigate('/users/123');
+navigate('/login', { replace: true });
+```
+
+<Note>
+  The location store automatically handles browser back/forward navigation and popstate events. It only sets up listeners when you have active subscriptions, making it efficient.
+</Note>
+
+---
+
+## Best Practices
+
+<Tabs>
+  <Tab title="Performance">
+    - Stores automatically batch updates for better performance
+    - Use `subscribe.withSelector` to avoid unnecessary re-renders when only a slice of state changes
+    - The `equalityFn` option allows custom comparison logic to prevent unnecessary updates
+    - Storage stores only set up cross-tab listeners when you have active subscriptions
+  </Tab>
+  
+  <Tab title="Type Safety">
+    - Define clear TypeScript types for your store state
+    - Use discriminated unions for complex state shapes
+    - Let TypeScript infer types from your initializer function
+    - The store API is fully typed and provides excellent autocomplete
+  </Tab>
+  
+  <Tab title="Architecture">
+    - Keep stores focused on a single domain (user, todos, preferences, etc.)
+    - Put business logic in the store initializer (actions pattern)
+    - Use `partialize` to control what gets persisted in storage stores
+    - Subscribe at the component/module level, not globally
+    - Always cleanup subscriptions when components unmount
+  </Tab>
+  
+  <Tab title="Debugging">
+    - Use the `logger` option in storage stores to handle errors gracefully
+    - Subscribe with `fireListenerImmediately: true` to see initial state
+    - Storage stores dispatch custom events for cross-tab debugging
+    - Call `getState()` in console to inspect current state
+  </Tab>
+</Tabs>
+
+---
+
+## Comparison with Other Solutions
+
+| Feature | toolkit-core | Redux | Zustand | Jotai |
+|---------|-------------|-------|---------|-------|
+| Bundle Size | ~2kb | ~10kb | ~1kb | ~3kb |
+| TypeScript | Built-in | Good | Excellent | Excellent |
+| Framework | Agnostic | Agnostic | Agnostic | React-focused |
+| Storage Sync | Built-in | Plugin | Plugin | Atoms |
+| Location Store | Built-in | Router | - | - |
+| Batching | Automatic | Manual | Automatic | Automatic |
+| DevTools | No | Yes | Yes | Yes |
+
+<Note>
+  While toolkit-core doesn't have dedicated DevTools, you can easily add logging middleware or use browser DevTools to inspect state changes.
+</Note>

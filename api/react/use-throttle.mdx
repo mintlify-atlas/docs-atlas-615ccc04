@@ -1,0 +1,247 @@
+---
+title: useThrottle
+description: Hooks for throttling function calls using different strategies
+---
+
+## Overview
+
+The throttle hooks provide utilities for limiting the rate at which a function can be called. Three different strategies are available:
+- **By Timeout**: Ensures function executes at most once per specified time period
+- **By Timer**: Similar to timeout but uses a different timing mechanism
+- **By Frame**: Throttles to animation frames using `requestAnimationFrame`
+
+## Import
+
+```tsx
+import {
+  useThrottleByTimeout,
+  useThrottleByTimer,
+  useThrottleByFrame
+} from "@zayne-labs/toolkit-react";
+```
+
+---
+
+## useThrottleByTimeout
+
+Throttles a function using a timeout-based approach.
+
+### Signature
+
+```typescript
+const useThrottleByTimeout = <TParams>(
+  callbackFn: CallbackFn<TParams>,
+  delay: number
+) => ThrottledFunction<TParams>
+```
+
+### Parameters
+
+<ParamField path="callbackFn" type="CallbackFn<TParams>" required>
+  The function to throttle.
+</ParamField>
+
+<ParamField path="delay" type="number" required>
+  The minimum time in milliseconds between function executions.
+</ParamField>
+
+### Return Value
+
+<ResponseField name="throttledFn" type="ThrottledFunction<TParams>">
+  The throttled function with a `cancelTimeout()` method to cancel pending execution.
+</ResponseField>
+
+### Usage
+
+```tsx
+import { useThrottleByTimeout } from "@zayne-labs/toolkit-react";
+
+function ScrollLogger() {
+  const logScroll = useThrottleByTimeout(() => {
+    console.log("Scroll position:", window.scrollY);
+  }, 200);
+
+  return (
+    <div
+      style={{ height: "200vh" }}
+      onScroll={logScroll}
+    >
+      <p>Scroll to see throttled logs (max once per 200ms)</p>
+    </div>
+  );
+}
+```
+
+---
+
+## useThrottleByTimer
+
+Throttles a function using a timer-based approach.
+
+### Signature
+
+```typescript
+const useThrottleByTimer = <TParams>(
+  callbackFn: CallbackFn<TParams>,
+  delay: number
+) => ThrottledFunction<TParams>
+```
+
+### Parameters
+
+<ParamField path="callbackFn" type="CallbackFn<TParams>" required>
+  The function to throttle.
+</ParamField>
+
+<ParamField path="delay" type="number" required>
+  The minimum time in milliseconds between function executions.
+</ParamField>
+
+### Return Value
+
+<ResponseField name="throttledFn" type="ThrottledFunction<TParams>">
+  The throttled function.
+</ResponseField>
+
+### Usage
+
+```tsx
+import { useThrottleByTimer } from "@zayne-labs/toolkit-react";
+import { useState } from "react";
+
+function ResizeHandler() {
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+
+  const handleResize = useThrottleByTimer(() => {
+    setWindowSize({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+  }, 250);
+
+  React.useEffect(() => {
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [handleResize]);
+
+  return (
+    <div>
+      <p>Width: {windowSize.width}px</p>
+      <p>Height: {windowSize.height}px</p>
+    </div>
+  );
+}
+```
+
+---
+
+## useThrottleByFrame
+
+Throttles a function to run at most once per animation frame.
+
+### Signature
+
+```typescript
+const useThrottleByFrame = <TParams>(
+  callbackFn: CallbackFn<TParams>
+) => ThrottledFunction<TParams>
+```
+
+### Parameters
+
+<ParamField path="callbackFn" type="CallbackFn<TParams>" required>
+  The function to throttle to animation frames.
+</ParamField>
+
+### Return Value
+
+<ResponseField name="throttledFn" type="ThrottledFunction<TParams>">
+  The throttled function with a `cancelAnimation()` method to cancel pending animation frame.
+</ResponseField>
+
+### Usage
+
+```tsx
+import { useThrottleByFrame } from "@zayne-labs/toolkit-react";
+import { useState } from "react";
+
+function SmoothScrollIndicator() {
+  const [scrollPercent, setScrollPercent] = useState(0);
+
+  const updateScrollIndicator = useThrottleByFrame(() => {
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
+    const scrollTop = window.scrollY;
+    const percent = (scrollTop / (documentHeight - windowHeight)) * 100;
+    setScrollPercent(percent);
+  });
+
+  React.useEffect(() => {
+    window.addEventListener("scroll", updateScrollIndicator);
+    return () => window.removeEventListener("scroll", updateScrollIndicator);
+  }, [updateScrollIndicator]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: `${scrollPercent}%`,
+        height: "4px",
+        background: "blue",
+      }}
+    />
+  );
+}
+```
+
+### Comparison Example
+
+```tsx
+import {
+  useThrottleByTimeout,
+  useThrottleByTimer,
+  useThrottleByFrame
+} from "@zayne-labs/toolkit-react";
+
+function ThrottleComparison() {
+  const throttledByTimeout = useThrottleByTimeout(() => {
+    console.log("Throttled by timeout");
+  }, 100);
+
+  const throttledByTimer = useThrottleByTimer(() => {
+    console.log("Throttled by timer");
+  }, 100);
+
+  const throttledByFrame = useThrottleByFrame(() => {
+    console.log("Throttled by frame");
+  });
+
+  return (
+    <div>
+      <button onMouseMove={throttledByTimeout}>
+        Hover for Timeout Throttle
+      </button>
+      <button onMouseMove={throttledByTimer}>
+        Hover for Timer Throttle
+      </button>
+      <button onMouseMove={throttledByFrame}>
+        Hover for Frame Throttle
+      </button>
+    </div>
+  );
+}
+```
+
+## Notes
+
+- All throttle hooks automatically clean up pending calls on component unmount
+- `useThrottleByTimeout` and `useThrottleByFrame` clean up their respective timers/animations on unmount
+- Callback functions are kept up to date via `useCallbackRef` to prevent stale closures
+- `useThrottleByFrame` is ideal for animations and visual updates
+- `useThrottleByTimeout` and `useThrottleByTimer` are better for event handlers with specific time requirements
+- Built on top of utilities from `@zayne-labs/toolkit-core`

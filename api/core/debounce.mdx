@@ -1,0 +1,142 @@
+---
+title: "debounce"
+description: "Creates a debounced function that delays invoking a callback until after a specified delay."
+---
+
+## Overview
+
+The `debounce` function creates a debounced version of a callback that delays its execution until after a specified delay has elapsed since the last time it was invoked. This is useful for rate-limiting events like user input, window resizing, or scroll events.
+
+## Import
+
+```typescript
+import { debounce } from "@zayne-labs/toolkit-core";
+```
+
+## Signature
+
+```typescript
+function debounce<TCallbackFn extends AnyFunction>(
+  callbackFn: TCallbackFn,
+  delay: number | undefined,
+  options?: DebounceOptions
+): DebouncedFn<TCallbackFn>
+```
+
+## Parameters
+
+<ParamField path="callbackFn" type="TCallbackFn" required>
+  The function to debounce.
+</ParamField>
+
+<ParamField path="delay" type="number | undefined" required>
+  The number of milliseconds to delay. If `undefined`, the callback is invoked immediately.
+</ParamField>
+
+<ParamField path="options" type="DebounceOptions">
+  Optional configuration object.
+  
+  <ParamField path="options.maxWait" type="number">
+    The maximum number of milliseconds to wait before invoking `callbackFn` again, regardless of debounce delay.
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="DebouncedFn<TCallbackFn>" type="function">
+  A debounced function with the following properties and methods:
+  
+  <ResponseField name="(...parameters)" type="void">
+    Call the debounced function with the same parameters as the original callback.
+  </ResponseField>
+  
+  <ResponseField name="(...parameters, overrideOptions)" type="void">
+    Call with an override object as the second parameter: `{ $delay: number }` to dynamically change the delay.
+  </ResponseField>
+  
+  <ResponseField name="cancel" type="() => void">
+    Cancels all pending invocations (both main timeout and maxWait timeout).
+  </ResponseField>
+  
+  <ResponseField name="cancelMaxWait" type="() => void">
+    Cancels only the maxWait timeout while keeping the main debounce timeout active.
+  </ResponseField>
+</ResponseField>
+
+## Usage Examples
+
+### Basic Debounce
+
+```typescript
+const searchAPI = (query: string) => {
+  console.log("Searching for:", query);
+};
+
+const debouncedSearch = debounce(searchAPI, 300);
+
+// Only the last call will execute after 300ms
+debouncedSearch("a");
+debouncedSearch("ab");
+debouncedSearch("abc"); // This will execute after 300ms
+```
+
+### With maxWait Option
+
+```typescript
+const trackScroll = () => {
+  console.log("Scroll position:", window.scrollY);
+};
+
+const debouncedTrack = debounce(trackScroll, 100, { maxWait: 500 });
+
+window.addEventListener("scroll", debouncedTrack);
+
+// Even with rapid scrolling, the function will execute
+// at least once every 500ms due to maxWait
+```
+
+### Dynamic Delay Override
+
+```typescript
+const saveData = (data: string) => {
+  console.log("Saving:", data);
+};
+
+const debouncedSave = debounce(saveData, 1000);
+
+// Normal usage with 1000ms delay
+debouncedSave("normal save");
+
+// Override delay to 100ms for this specific call
+debouncedSave(["urgent save"], { $delay: 100 });
+```
+
+### Cancelling Debounced Functions
+
+```typescript
+const expensiveOperation = () => {
+  console.log("Running expensive operation");
+};
+
+const debouncedOp = debounce(expensiveOperation, 500);
+
+debouncedOp();
+
+// Cancel before it executes
+debouncedOp.cancel();
+```
+
+## Common Use Cases
+
+- **Search Input**: Delay API calls until the user stops typing
+- **Window Resize**: Limit recalculations during window resize events
+- **Form Auto-save**: Save form data after user stops editing
+- **Scroll Events**: Reduce the frequency of scroll event handlers
+
+## Notes
+
+- The debounced function maintains the same signature as the original callback
+- Stored parameters are cleared after invocation or cancellation
+- The `maxWait` option ensures the callback is invoked at least once within the specified timeframe
+- Use `cancel()` to prevent any pending invocations
+- Use `cancelMaxWait()` to cancel only the max wait timeout while keeping the debounce active

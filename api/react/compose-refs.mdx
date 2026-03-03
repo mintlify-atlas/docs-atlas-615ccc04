@@ -1,0 +1,219 @@
+---
+title: composeRefs
+description: Combine multiple React refs into a single callback ref
+---
+
+## Overview
+
+`composeRefs` is a utility function that combines multiple React refs (both callback refs and ref objects) into a single callback ref. This is useful when you need to attach multiple refs to the same DOM element.
+
+## Import
+
+```typescript
+import { composeRefs } from "@zayne-labs/toolkit-react";
+```
+
+## Signature
+
+```typescript
+function composeRefs<TRef extends HTMLElement>(
+  ...refs: Array<PossibleRef<TRef>>
+): RefCallback<TRef>
+```
+
+## Parameters
+
+<ParamField path="...refs" type="Array<PossibleRef<TRef>>" required>
+  A variable number of refs to combine. Each ref can be:
+  - A callback ref: `(node: TRef | null) => void`
+  - A ref object: `React.RefObject<TRef>`
+  - `undefined`
+</ParamField>
+
+## Return Value
+
+<ResponseField name="RefCallback" type="RefCallback<TRef>">
+  A callback ref that updates all provided refs when called. The callback also returns a cleanup function that is called when the ref is detached.
+</ResponseField>
+
+## Types
+
+```typescript
+type PossibleRef<TRef extends HTMLElement> = React.Ref<TRef> | undefined;
+
+type RefCallback<TRef> = (node: TRef | null) => (() => void) | void;
+```
+
+## Helper Function
+
+### setRef
+
+`setRef` is a helper function used internally by `composeRefs` to set a single ref value:
+
+```typescript
+function setRef<TRef extends HTMLElement>(
+  ref: PossibleRef<TRef>,
+  node: TRef | null
+): ReturnType<RefCallback<TRef>>
+```
+
+This utility handles both callback refs and ref objects automatically.
+
+## Examples
+
+### Combining Local and Forwarded Refs
+
+```typescript
+import { composeRefs } from "@zayne-labs/toolkit-react";
+import { useRef, forwardRef } from "react";
+
+const Input = forwardRef<HTMLInputElement, InputProps>((props, forwardedRef) => {
+  const localRef = useRef<HTMLInputElement>(null);
+  
+  const handleFocus = () => {
+    if (localRef.current) {
+      localRef.current.select();
+    }
+  };
+  
+  return (
+    <input
+      ref={composeRefs(localRef, forwardedRef)}
+      onFocus={handleFocus}
+      {...props}
+    />
+  );
+});
+```
+
+### Multiple Callback Refs
+
+```typescript
+import { composeRefs } from "@zayne-labs/toolkit-react";
+import { useCallback } from "react";
+
+function Component() {
+  const measureRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      console.log("Width:", node.offsetWidth);
+    }
+  }, []);
+  
+  const observeRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      const observer = new ResizeObserver((entries) => {
+        console.log("Resized:", entries[0].contentRect);
+      });
+      
+      observer.observe(node);
+      
+      // Return cleanup function
+      return () => observer.disconnect();
+    }
+  }, []);
+  
+  return <div ref={composeRefs(measureRef, observeRef)}>Content</div>;
+}
+```
+
+### With useImperativeHandle
+
+```typescript
+import { composeRefs } from "@zayne-labs/toolkit-react";
+import { useRef, useImperativeHandle, forwardRef } from "react";
+
+type VideoPlayerRef = {
+  play: () => void;
+  pause: () => void;
+};
+
+const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>((props, ref) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  useImperativeHandle(ref, () => ({
+    play: () => videoRef.current?.play(),
+    pause: () => videoRef.current?.pause(),
+  }));
+  
+  const trackRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node) {
+      console.log("Video element mounted");
+    }
+  }, []);
+  
+  return <video ref={composeRefs(videoRef, trackRef)} {...props} />;
+});
+```
+
+### Handling Undefined Refs
+
+```typescript
+import { composeRefs } from "@zayne-labs/toolkit-react";
+
+function Button({ forwardedRef }: { forwardedRef?: React.Ref<HTMLButtonElement> }) {
+  const localRef = useRef<HTMLButtonElement>(null);
+  
+  // composeRefs handles undefined refs gracefully
+  return (
+    <button ref={composeRefs(localRef, forwardedRef)}>
+      Click me
+    </button>
+  );
+}
+```
+
+### With Cleanup Functions
+
+```typescript
+import { composeRefs } from "@zayne-labs/toolkit-react";
+import { useCallback } from "react";
+
+function ScrollTracker() {
+  const scrollRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      const handleScroll = () => {
+        console.log("Scrolled:", node.scrollTop);
+      };
+      
+      node.addEventListener("scroll", handleScroll);
+      
+      // Cleanup function
+      return () => {
+        node.removeEventListener("scroll", handleScroll);
+      };
+    }
+  }, []);
+  
+  const focusRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      const handleFocus = () => console.log("Focused");
+      const handleBlur = () => console.log("Blurred");
+      
+      node.addEventListener("focus", handleFocus);
+      node.addEventListener("blur", handleBlur);
+      
+      // Cleanup function
+      return () => {
+        node.removeEventListener("focus", handleFocus);
+        node.removeEventListener("blur", handleBlur);
+      };
+    }
+  }, []);
+  
+  return <div ref={composeRefs(scrollRef, focusRef)} tabIndex={0}>Tracked Element</div>;
+}
+```
+
+## How It Works
+
+1. **Combines refs**: Takes multiple refs and creates a single callback ref
+2. **Sets all refs**: When the callback is invoked with a node, it updates all provided refs
+3. **Handles cleanup**: Collects cleanup functions from callback refs and executes them when the ref is detached
+4. **Type-safe**: Properly typed for TypeScript usage
+
+## Best Practices
+
+1. **Use with forwardRef**: Combine forwarded refs with local refs for component composition
+2. **Return cleanup functions**: If your callback refs set up side effects, return cleanup functions
+3. **Handle null refs**: The utility gracefully handles undefined refs, so you don't need to check
+4. **Type your refs**: Always specify the HTML element type for better type safety

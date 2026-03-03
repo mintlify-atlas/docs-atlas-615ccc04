@@ -1,0 +1,305 @@
+---
+title: useControllable
+description: Hooks for managing controllable and uncontrollable component state
+---
+
+## Overview
+
+The controllable hooks help you create components that can work in both controlled and uncontrolled modes, similar to how native inputs work in React. This pattern is essential for building flexible, reusable components.
+
+## Import
+
+```tsx
+import { useControllableState, useControllableProp } from "@zayne-labs/toolkit-react";
+```
+
+---
+
+## useControllableState
+
+Manages state that can be either controlled (via props) or uncontrolled (via internal state).
+
+### Signature
+
+```typescript
+const useControllableState = <TProp>(options: UseControllableStateOptions<TProp>) => [
+  state: TProp,
+  setState: StateSetter<TProp>
+]
+```
+
+### Parameters
+
+<ParamField path="options" type="UseControllableStateOptions<TProp>" required>
+  Configuration options for the controllable state.
+  
+  <ParamField path="options.prop" type="TProp">
+    The controlled value from props. If provided, the component operates in controlled mode.
+  </ParamField>
+  
+  <ParamField path="options.defaultProp" type="TProp | (() => TProp)">
+    The initial value for uncontrolled mode. Can be a value or a function for lazy initialization.
+  </ParamField>
+  
+  <ParamField path="options.onChange" type="(prop: TProp) => void">
+    Callback fired when the value changes. In controlled mode, this is your only way to update the value.
+    In uncontrolled mode, this is called after the internal state updates.
+  </ParamField>
+  
+  <ParamField path="options.isControlled" type="boolean">
+    Explicitly set whether the component is controlled. If not provided, it's determined by whether `prop` is defined.
+  </ParamField>
+</ParamField>
+
+### Return Value
+
+Returns a tuple similar to `useState`:
+
+<ResponseField name="state" type="TProp">
+  The current value (either from `prop` in controlled mode or internal state in uncontrolled mode).
+</ResponseField>
+
+<ResponseField name="setState" type="StateSetter<TProp>">
+  Function to update the value. Works like React's setState - accepts a value or updater function.
+  In controlled mode, calls `onChange` without mutating internal state.
+  In uncontrolled mode, updates internal state and then calls `onChange`.
+</ResponseField>
+
+### Usage
+
+#### Basic Controlled/Uncontrolled Input
+
+```tsx
+import { useControllableState } from "@zayne-labs/toolkit-react";
+
+type InputProps = {
+  value?: string;
+  defaultValue?: string;
+  onChange?: (value: string) => void;
+};
+
+function CustomInput({ value, defaultValue, onChange }: InputProps) {
+  const [inputValue, setInputValue] = useControllableState({
+    prop: value,
+    defaultProp: defaultValue,
+    onChange,
+  });
+
+  return (
+    <input
+      value={inputValue}
+      onChange={(e) => setInputValue(e.target.value)}
+    />
+  );
+}
+
+// Uncontrolled usage
+function UncontrolledExample() {
+  return <CustomInput defaultValue="hello" />;
+}
+
+// Controlled usage
+function ControlledExample() {
+  const [value, setValue] = useState("hello");
+  return <CustomInput value={value} onChange={setValue} />;
+}
+```
+
+#### Custom Toggle Component
+
+```tsx
+import { useControllableState } from "@zayne-labs/toolkit-react";
+
+type ToggleProps = {
+  isOpen?: boolean;
+  defaultIsOpen?: boolean;
+  onToggle?: (isOpen: boolean) => void;
+};
+
+function Toggle({ isOpen, defaultIsOpen, onToggle }: ToggleProps) {
+  const [open, setOpen] = useControllableState({
+    prop: isOpen,
+    defaultProp: defaultIsOpen ?? false,
+    onChange: onToggle,
+  });
+
+  return (
+    <button onClick={() => setOpen(!open)}>
+      {open ? "Open" : "Closed"}
+    </button>
+  );
+}
+```
+
+#### With Updater Function
+
+```tsx
+import { useControllableState } from "@zayne-labs/toolkit-react";
+
+type CounterProps = {
+  count?: number;
+  defaultCount?: number;
+  onChange?: (count: number) => void;
+};
+
+function Counter({ count, defaultCount, onChange }: CounterProps) {
+  const [value, setValue] = useControllableState({
+    prop: count,
+    defaultProp: defaultCount ?? 0,
+    onChange,
+  });
+
+  return (
+    <div>
+      <p>Count: {value}</p>
+      {/* Using updater function */}
+      <button onClick={() => setValue((prev) => prev + 1)}>
+        Increment
+      </button>
+      <button onClick={() => setValue((prev) => prev - 1)}>
+        Decrement
+      </button>
+      {/* Using direct value */}
+      <button onClick={() => setValue(0)}>
+        Reset
+      </button>
+    </div>
+  );
+}
+```
+
+---
+
+## useControllableProp
+
+A simpler utility that determines if a component is controlled and returns the appropriate value.
+
+### Signature
+
+```typescript
+const useControllableProp = <TProp>(options: UseControllablePropOptions<TProp>) => [
+  isControlled: boolean,
+  value: TProp
+]
+```
+
+### Parameters
+
+<ParamField path="options" type="UseControllablePropOptions<TProp>" required>
+  <ParamField path="options.prop" type="TProp | undefined" required>
+    The controlled value from props.
+  </ParamField>
+  
+  <ParamField path="options.state" type="TProp" required>
+    The uncontrolled state value.
+  </ParamField>
+</ParamField>
+
+### Return Value
+
+<ResponseField name="isControlled" type="boolean">
+  Whether the component is operating in controlled mode (determined by whether `prop` is defined).
+</ResponseField>
+
+<ResponseField name="value" type="TProp">
+  The value to use (either `prop` if controlled, or `state` if uncontrolled).
+</ResponseField>
+
+### Usage
+
+```tsx
+import { useControllableProp } from "@zayne-labs/toolkit-react";
+import { useState } from "react";
+
+type SwitchProps = {
+  checked?: boolean;
+  defaultChecked?: boolean;
+};
+
+function Switch({ checked, defaultChecked }: SwitchProps) {
+  const [internalChecked, setInternalChecked] = useState(defaultChecked ?? false);
+  
+  const [isControlled, value] = useControllableProp({
+    prop: checked,
+    state: internalChecked,
+  });
+
+  const handleClick = () => {
+    if (!isControlled) {
+      setInternalChecked(!internalChecked);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className={value ? "switch-on" : "switch-off"}
+    >
+      {value ? "ON" : "OFF"}
+    </button>
+  );
+}
+```
+
+## Advanced Example
+
+### Select Component with Multiple Values
+
+```tsx
+import { useControllableState } from "@zayne-labs/toolkit-react";
+
+type Option = { value: string; label: string };
+
+type MultiSelectProps = {
+  options: Option[];
+  value?: string[];
+  defaultValue?: string[];
+  onChange?: (value: string[]) => void;
+};
+
+function MultiSelect({
+  options,
+  value,
+  defaultValue,
+  onChange,
+}: MultiSelectProps) {
+  const [selectedValues, setSelectedValues] = useControllableState({
+    prop: value,
+    defaultProp: defaultValue ?? [],
+    onChange,
+  });
+
+  const toggleOption = (optionValue: string) => {
+    setSelectedValues((prev) => {
+      if (prev.includes(optionValue)) {
+        return prev.filter((v) => v !== optionValue);
+      }
+      return [...prev, optionValue];
+    });
+  };
+
+  return (
+    <div>
+      {options.map((option) => (
+        <label key={option.value}>
+          <input
+            type="checkbox"
+            checked={selectedValues.includes(option.value)}
+            onChange={() => toggleOption(option.value)}
+          />
+          {option.label}
+        </label>
+      ))}
+    </div>
+  );
+}
+```
+
+## Notes
+
+- `useControllableState` automatically detects controlled mode when `prop` is defined (even if `undefined`)
+- The `onChange` callback is kept stable using `useCallbackRef`
+- In controlled mode, `setState` only calls `onChange` without mutating internal state
+- In uncontrolled mode, `setState` updates internal state first, then calls `onChange`
+- Both returned values are properly typed and work seamlessly with TypeScript
+- `useControllableProp` is memoized to prevent unnecessary re-renders

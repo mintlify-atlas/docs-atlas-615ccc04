@@ -1,0 +1,204 @@
+---
+title: createCustomContext
+description: Create type-safe React context with customizable options and strict mode
+---
+
+## Overview
+
+`createCustomContext` is a utility function that creates a type-safe React context with enhanced features like strict mode validation, custom error messages, and value extension capabilities.
+
+## Import
+
+```typescript
+import { createCustomContext } from "@zayne-labs/toolkit-react";
+```
+
+## Signature
+
+```typescript
+function createCustomContext<TContextValue = null, TStrict extends boolean = true>(
+  options?: CustomContextOptions<TContextValue, TStrict>
+): [
+  Provider: React.Context<TContextValue>,
+  useCustomContext: UseCustomContext<TContextValue, TStrict>
+]
+```
+
+## Parameters
+
+<ParamField path="options" type="CustomContextOptions<TContextValue, TStrict>" default="{}">
+  Configuration options for the custom context
+  
+  <ParamField path="options.defaultValue" type="TContextValue | null" default="null">
+    The default value for the context
+  </ParamField>
+  
+  <ParamField path="options.errorMessage" type="string">
+    Custom error message when context is used outside of provider in strict mode
+  </ParamField>
+  
+  <ParamField path="options.extendValue" type="(contextValue: TContextValue | null) => TContextValue | null">
+    Function to extend or transform the context value before returning it
+  </ParamField>
+  
+  <ParamField path="options.hookName" type="string" default="'useUnnamedContext'">
+    Name of the hook for error messages
+  </ParamField>
+  
+  <ParamField path="options.name" type="string">
+    Display name for the context (defaults to provider name without 'Provider' suffix)
+  </ParamField>
+  
+  <ParamField path="options.providerName" type="string" default="'UnnamedContextProvider'">
+    Name of the provider for error messages
+  </ParamField>
+  
+  <ParamField path="options.strict" type="boolean" default="true">
+    When true, throws an error if context is used outside of provider
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="[0]" type="React.Context<TContextValue>">
+  The React context Provider component
+</ResponseField>
+
+<ResponseField name="[1]" type="UseCustomContext<TContextValue, TStrict>">
+  Hook to access the context value
+  
+  - Returns `TContextValue` when `strict` is `true`
+  - Returns `TContextValue | null` when `strict` is `false`
+</ResponseField>
+
+## Types
+
+```typescript
+type CustomContextOptions<TContextValue, TStrict extends boolean> = {
+  defaultValue?: TContextValue | null;
+  errorMessage?: string;
+  extendValue?: (contextValue: NoInfer<TContextValue> | null) => TContextValue | null;
+  hookName?: string;
+  name?: string;
+  providerName?: string;
+  strict?: TStrict;
+};
+
+type UseCustomContext<TContextValue, TStrict extends boolean> = () => TStrict extends true
+  ? TContextValue
+  : TContextValue | null;
+```
+
+## Examples
+
+### Basic Usage
+
+```typescript
+import { createCustomContext } from "@zayne-labs/toolkit-react";
+
+type ThemeContextValue = {
+  theme: "light" | "dark";
+  toggleTheme: () => void;
+};
+
+const [ThemeProvider, useTheme] = createCustomContext<ThemeContextValue>({
+  name: "Theme",
+  hookName: "useTheme",
+  providerName: "ThemeProvider",
+});
+
+function App() {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  
+  const value = {
+    theme,
+    toggleTheme: () => setTheme(prev => prev === "light" ? "dark" : "light"),
+  };
+  
+  return (
+    <ThemeProvider.Provider value={value}>
+      <Content />
+    </ThemeProvider.Provider>
+  );
+}
+
+function Content() {
+  const { theme, toggleTheme } = useTheme();
+  
+  return (
+    <div>
+      <p>Current theme: {theme}</p>
+      <button onClick={toggleTheme}>Toggle Theme</button>
+    </div>
+  );
+}
+```
+
+### Non-Strict Mode
+
+```typescript
+const [UserProvider, useUser] = createCustomContext<User, false>({
+  name: "User",
+  strict: false, // Allow usage outside of provider
+});
+
+function Component() {
+  const user = useUser(); // user can be User | null
+  
+  if (!user) {
+    return <div>Not logged in</div>;
+  }
+  
+  return <div>Welcome, {user.name}</div>;
+}
+```
+
+### With Custom Error Message
+
+```typescript
+const [AuthProvider, useAuth] = createCustomContext<AuthContextValue>({
+  name: "Auth",
+  hookName: "useAuth",
+  providerName: "AuthProvider",
+  errorMessage: "useAuth must be used within an AuthProvider. Make sure your component is wrapped with <AuthProvider>.",
+});
+```
+
+### With Value Extension
+
+```typescript
+const [SettingsProvider, useSettings] = createCustomContext<Settings>({
+  name: "Settings",
+  extendValue: (value) => {
+    // Add computed properties or merge with defaults
+    if (!value) return null;
+    
+    return {
+      ...value,
+      isProduction: value.environment === "production",
+    };
+  },
+});
+```
+
+## Error Handling
+
+When `strict` mode is enabled (default), the hook throws a `ContextError` if used outside of the provider:
+
+```typescript
+class ContextError extends Error {
+  name = "ContextError";
+}
+```
+
+The default error message format is:
+```
+{hookName} returned "null". Did you forget to wrap the necessary components within {providerName}?
+```
+
+## Best Practices
+
+1. **Always provide meaningful names**: Use the `name`, `hookName`, and `providerName` options for better debugging
+2. **Use strict mode by default**: Only disable strict mode when you have a valid use case for optional context
+3. **Provide custom error messages**: Help developers understand where to wrap components with the provider
+4. **Type your context value**: Always provide a type parameter for better type safety

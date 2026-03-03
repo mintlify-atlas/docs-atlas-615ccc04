@@ -1,80 +1,431 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get up and running with Zayne Labs Toolkit in minutes
 ---
 
-## Get started in three steps
+# Quick Start
 
-Get your documentation site running locally and make your first customization.
+This guide will help you build your first application using Zayne Labs Toolkit. We'll create a simple interactive component that demonstrates core utilities, React hooks, and type safety.
 
-### Step 1: Set up your local environment
+## What We'll Build
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+A toggle component with clipboard functionality that showcases:
+- Core utilities (`copyToClipboard`, `debounce`)
+- React hooks (`useToggle`, `useDisclosure`, `useClickOutside`)
+- Type safety with TypeScript
 
-### Step 2: Deploy your changes
+<Steps>
+  <Step title="Install the packages">
+    First, install the packages you need:
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    <CodeGroup>
+    ```bash npm
+    npm install @zayne-labs/toolkit-core @zayne-labs/toolkit-react @zayne-labs/toolkit-type-helpers
+    ```
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```bash pnpm
+    pnpm add @zayne-labs/toolkit-core @zayne-labs/toolkit-react @zayne-labs/toolkit-type-helpers
+    ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```bash yarn
+    yarn add @zayne-labs/toolkit-core @zayne-labs/toolkit-react @zayne-labs/toolkit-type-helpers
+    ```
+    </CodeGroup>
 
-### Step 3: Go live
+    <Note>
+      Make sure you have React 19.0.0 or higher installed in your project.
+    </Note>
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Create your first component">
+    Create a new file `InteractiveCard.tsx` and add the following code:
 
-## Next steps
+    ```typescript InteractiveCard.tsx
+    import { copyToClipboard } from "@zayne-labs/toolkit-core";
+    import { useToggle, useDisclosure } from "@zayne-labs/toolkit-react";
+    import { useState } from "react";
+    import type { Prettify } from "@zayne-labs/toolkit-type-helpers";
 
-Now that you have your docs running, explore these key features:
+    type CardState = Prettify<{
+      isExpanded: boolean;
+      copyCount: number;
+    }>;
+
+    export function InteractiveCard() {
+      const [isExpanded, toggleExpanded] = useToggle(false);
+      const [copyCount, setCopyCount] = useState(0);
+      
+      const modal = useDisclosure({
+        initialState: false,
+        hasScrollControl: true,
+      });
+
+      const handleCopy = async () => {
+        await copyToClipboard("Hello from Zayne Labs Toolkit!", {
+          onSuccess: () => {
+            setCopyCount((prev) => prev + 1);
+            console.log("Copied to clipboard!");
+          },
+          onError: (error) => {
+            console.error("Failed to copy:", error);
+          },
+        });
+      };
+
+      return (
+        <div className="card">
+          <h2>Interactive Card</h2>
+          
+          <button onClick={() => toggleExpanded()}>
+            {isExpanded ? "Collapse" : "Expand"}
+          </button>
+          
+          {isExpanded && (
+            <div className="content">
+              <p>This content is toggleable!</p>
+              
+              <button onClick={handleCopy}>
+                Copy to Clipboard
+              </button>
+              
+              {copyCount > 0 && (
+                <p>Copied {copyCount} time{copyCount > 1 ? "s" : ""}!</p>
+              )}
+            </div>
+          )}
+          
+          <button onClick={() => modal.onOpen()}>
+            Open Modal
+          </button>
+          
+          {modal.isOpen && (
+            <div className="modal">
+              <h3>Modal is Open</h3>
+              <p>Scroll is locked when modal is open</p>
+              <button onClick={() => modal.onClose()}>
+                Close Modal
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+    ```
+
+    This component demonstrates:
+    - `useToggle` for expandable content
+    - `copyToClipboard` with success/error callbacks
+    - `useDisclosure` with scroll lock for modals
+    - `Prettify` type helper for clean type definitions
+  </Step>
+
+  <Step title="Use advanced hooks">
+    Let's enhance the component with more hooks. Create `AdvancedCard.tsx`:
+
+    ```typescript AdvancedCard.tsx
+    import { debounce } from "@zayne-labs/toolkit-core";
+    import { 
+      useClickOutside, 
+      useCallbackRef,
+      useDebounce 
+    } from "@zayne-labs/toolkit-react";
+    import { composeRefs } from "@zayne-labs/toolkit-react/utils";
+    import { useRef, useState } from "react";
+
+    export function AdvancedCard() {
+      const [search, setSearch] = useState("");
+      const [isMenuOpen, setIsMenuOpen] = useState(false);
+      const menuRef = useRef<HTMLDivElement>(null);
+      const inputRef = useRef<HTMLInputElement>(null);
+      
+      // Debounce search input
+      const debouncedSearch = useDebounce(search, 300);
+      
+      // Close menu when clicking outside
+      const handleClickOutside = useCallbackRef(() => {
+        setIsMenuOpen(false);
+      });
+      
+      useClickOutside(menuRef, handleClickOutside, {
+        enabled: isMenuOpen,
+      });
+
+      return (
+        <div className="advanced-card">
+          <input
+            ref={inputRef}
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search..."
+          />
+          
+          <p>Debounced value: {debouncedSearch}</p>
+          
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            Toggle Menu
+          </button>
+          
+          {isMenuOpen && (
+            <div ref={menuRef} className="menu">
+              <p>Click outside to close</p>
+              <ul>
+                <li>Menu Item 1</li>
+                <li>Menu Item 2</li>
+                <li>Menu Item 3</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    }
+    ```
+
+    This demonstrates:
+    - `useDebounce` for search input optimization
+    - `useClickOutside` for dropdown menus
+    - `useCallbackRef` for stable callbacks
+    - Ref composition with `composeRefs`
+  </Step>
+
+  <Step title="Use React utilities">
+    The toolkit provides powerful React utilities. Here's an example using slot components:
+
+    ```typescript SlotExample.tsx
+    import {
+      createSlotComponent,
+      getSlotMap,
+      composeEventHandlers,
+      type GetSlotComponentProps,
+    } from "@zayne-labs/toolkit-react/utils";
+
+    type DialogSlots =
+      | GetSlotComponentProps<"header">
+      | GetSlotComponentProps<"content">
+      | GetSlotComponentProps<"footer">;
+
+    function Dialog(props: { children: React.ReactNode }) {
+      const { children } = props;
+      const slots = getSlotMap<DialogSlots>(children);
+
+      const handleClick = composeEventHandlers(
+        () => console.log("Dialog clicked"),
+        () => console.log("Additional handler")
+      )();
+
+      return (
+        <div className="dialog" onClick={handleClick}>
+          <header>{slots.header}</header>
+          <div className="content">{slots.content}</div>
+          <footer>{slots.footer}</footer>
+          <aside>{slots.default}</aside>
+        </div>
+      );
+    }
+
+    Dialog.Slot = createSlotComponent<DialogSlots>();
+
+    // Usage
+    export function DialogExample() {
+      return (
+        <Dialog>
+          <Dialog.Slot name="header">
+            <h2>Dialog Title</h2>
+          </Dialog.Slot>
+          
+          <Dialog.Slot name="content">
+            <p>This is the dialog content</p>
+          </Dialog.Slot>
+          
+          <Dialog.Slot name="footer">
+            <button>Close</button>
+          </Dialog.Slot>
+          
+          <p>This goes in the default slot</p>
+        </Dialog>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Use type helpers">
+    Leverage TypeScript utilities for better type safety:
+
+    ```typescript types.ts
+    import type {
+      Prettify,
+      DeepPrettify,
+      NonFalsy,
+      PrettyOmit,
+      CallbackFn,
+    } from "@zayne-labs/toolkit-type-helpers";
+    import { isString, isBoolean, isNumber } from "@zayne-labs/toolkit-type-helpers";
+
+    // Clean up intersection types
+    type User = Prettify<{ id: number } & { name: string } & { email: string }>;
+    // Result: { id: number; name: string; email: string }
+
+    // Deep prettify nested objects
+    type NestedData = DeepPrettify<{
+      user: { id: number } & { profile: { name: string } };
+    }>;
+
+    // Remove falsy types
+    type NonFalsyString = NonFalsy<string | null | undefined>; // string
+
+    // Omit with prettified result
+    type UserWithoutEmail = PrettyOmit<User, "email">;
+
+    // Type-safe callbacks
+    const handleUserUpdate: CallbackFn<User> = (user) => {
+      console.log(user.name);
+    };
+
+    // Runtime type guards
+    function processValue(value: unknown) {
+      if (isString(value)) {
+        // TypeScript knows value is string here
+        return value.toUpperCase();
+      }
+      
+      if (isNumber(value)) {
+        // TypeScript knows value is number here
+        return value.toFixed(2);
+      }
+      
+      if (isBoolean(value)) {
+        // TypeScript knows value is boolean here
+        return value ? "yes" : "no";
+      }
+      
+      return "unknown";
+    }
+    ```
+  </Step>
+
+  <Step title="Run your application">
+    Add the components to your main app:
+
+    ```typescript App.tsx
+    import { InteractiveCard } from "./InteractiveCard";
+    import { AdvancedCard } from "./AdvancedCard";
+    import { DialogExample } from "./SlotExample";
+
+    export default function App() {
+      return (
+        <div className="app">
+          <h1>Zayne Labs Toolkit Demo</h1>
+          
+          <InteractiveCard />
+          <AdvancedCard />
+          <DialogExample />
+        </div>
+      );
+    }
+    ```
+
+    Start your development server and test the components!
+  </Step>
+</Steps>
+
+## Common Patterns
+
+### Debouncing and Throttling
+
+```typescript
+import { debounce, throttle } from "@zayne-labs/toolkit-core";
+import { useDebounce, useThrottle } from "@zayne-labs/toolkit-react";
+
+// Core utilities
+const debouncedFn = debounce((value: string) => {
+  console.log("Debounced:", value);
+}, 300);
+
+const throttledFn = throttle((value: string) => {
+  console.log("Throttled:", value);
+}, 1000);
+
+// React hooks
+function SearchComponent() {
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
+  const throttledSearch = useThrottle(search, 1000);
+  
+  // Use debouncedSearch for API calls
+  // Use throttledSearch for analytics
+}
+```
+
+### State Management
+
+```typescript
+import { createStore } from "@zayne-labs/toolkit-core";
+import { useStore } from "@zayne-labs/toolkit-react";
+
+// Create a store
+const counterStore = createStore({ count: 0 });
+
+// Use in React
+function Counter() {
+  const count = useStore(counterStore, (state) => state.count);
+  
+  return (
+    <button onClick={() => counterStore.setState({ count: count + 1 })}>
+      Count: {count}
+    </button>
+  );
+}
+```
+
+## Next Steps
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Core Utilities" icon="wrench" href="/core/overview">
+    Explore all available core utilities.
+  </Card>
+  
+  <Card title="React Hooks" icon="react" href="/react/hooks">
+    Discover all React hooks.
+  </Card>
+  
+  <Card title="Type Helpers" icon="code" href="/type-helpers/type-utilities">
+    Learn about TypeScript utilities.
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api/core/debounce">
+    View the complete API reference.
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+<Tip>
+  All utilities are tree-shakeable. Your bundler will only include what you actually use, keeping your bundle size minimal.
+</Tip>
+
+## Best Practices
+
+1. **Import Specific Utilities**: Import only what you need for optimal tree-shaking
+   ```typescript
+   // Good
+   import { useToggle, useDisclosure } from "@zayne-labs/toolkit-react";
+   
+   // Avoid
+   import * as toolkit from "@zayne-labs/toolkit-react";
+   ```
+
+2. **Use Type Helpers**: Leverage TypeScript utilities for cleaner types
+   ```typescript
+   type Props = Prettify<BaseProps & AdditionalProps>;
+   ```
+
+3. **Combine Hooks**: Hooks are composable and work well together
+   ```typescript
+   const modal = useDisclosure();
+   const [data, setData] = useStorageState("key", defaultValue);
+   ```
+
+4. **Leverage Callbacks**: Use `useCallbackRef` for stable function references
+   ```typescript
+   const handleClick = useCallbackRef(() => {
+     // Always gets latest closure values
+   });
+   ```
