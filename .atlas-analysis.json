@@ -1,0 +1,161 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Zayne Labs Toolkit",
+  "projectDescription": "A modular collection of TypeScript utilities, React hooks, and type helpers for modern web development",
+  "theme": "palm",
+  "primaryColor": "#6366f1",
+  "lightColor": "#818cf8",
+  "darkColor": "#4f46e5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Package",
+            "pages": [
+              "core/overview",
+              "core/utilities",
+              "core/state-management",
+              "core/async-utilities",
+              "core/dom-utilities"
+            ]
+          },
+          {
+            "group": "React Package",
+            "pages": [
+              "react/overview",
+              "react/hooks",
+              "react/utilities",
+              "react/zustand"
+            ]
+          },
+          {
+            "group": "Type Helpers",
+            "pages": [
+              "type-helpers/overview",
+              "type-helpers/type-utilities",
+              "type-helpers/guards-and-assertions",
+              "type-helpers/enums"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/migration",
+              "guides/tree-shaking",
+              "guides/contributing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/core/debounce",
+              "api/core/throttle",
+              "api/core/create-store",
+              "api/core/copy-to-clipboard",
+              "api/core/file-validation",
+              "api/core/navigation",
+              "api/core/object-utilities",
+              "api/core/promise-utilities"
+            ]
+          },
+          {
+            "group": "React Hooks API",
+            "pages": [
+              "api/react/use-toggle",
+              "api/react/use-disclosure",
+              "api/react/use-debounce",
+              "api/react/use-throttle",
+              "api/react/use-storage-state",
+              "api/react/use-click-outside",
+              "api/react/use-controllable",
+              "api/react/use-copy-to-clipboard",
+              "api/react/use-search",
+              "api/react/use-compose-refs"
+            ]
+          },
+          {
+            "group": "React Utilities API",
+            "pages": [
+              "api/react/create-custom-context",
+              "api/react/compose-refs"
+            ]
+          },
+          {
+            "group": "Zustand API",
+            "pages": [
+              "api/zustand/create-react-store",
+              "api/zustand/create-react-store-context"
+            ]
+          },
+          {
+            "group": "Type Helpers API",
+            "pages": [
+              "api/type-helpers/prettify",
+              "api/type-helpers/union-utilities",
+              "api/type-helpers/writeable",
+              "api/type-helpers/guards",
+              "api/type-helpers/assertions"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Modular architecture - import only what you need",
+    "Full TypeScript support with advanced type utilities",
+    "Comprehensive React hooks library",
+    "Zustand store integrations and helpers",
+    "Tree-shakeable exports for optimal bundle size",
+    "Zero runtime overhead for type utilities",
+    "Framework-agnostic core utilities",
+    "Thoroughly tested with Vitest"
+  ],
+  "publicApiSurface": [
+    "debounce",
+    "throttle",
+    "createStore",
+    "copyToClipboard",
+    "parseJSON",
+    "omitKeys",
+    "pickKeys",
+    "wait",
+    "useToggle",
+    "useDisclosure",
+    "useDebounce",
+    "useThrottle",
+    "useStorageState",
+    "useClickOutside",
+    "useControllable",
+    "useCopyToClipboard",
+    "useSearch",
+    "useComposeRefs",
+    "createCustomContext",
+    "composeRefs",
+    "createReactStore",
+    "createReactStoreContext",
+    "Prettify",
+    "UnionToArray",
+    "Writeable",
+    "isString",
+    "isNumber",
+    "isObject",
+    "assertIsDefined",
+    "createEnum"
+  ]
+}
